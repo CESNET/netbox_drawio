@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=77.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "netbox-drawio"
+dynamic = ["version"]
+description = "NetBox plugin for creating draw.io diagrams and assigning them to multiple NetBox objects"
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Jan Krupa", email = "jan.krupa@cesnet.cz"},
+]
+keywords = ["netbox", "netbox-plugin", "drawio", "diagrams"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Framework :: Django",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "django>=5.0,<7.0",
+]
+
+[project.entry-points."netbox.plugins"]
+netbox_drawio = "netbox_drawio:config"
+
+[tool.setuptools.dynamic]
+version = {attr = "netbox_drawio.version.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["netbox_drawio*"]
+
+[tool.setuptools.package-data]
+netbox_drawio = ["**/*", "templates/**", "static/**"]
+
+[tool.setuptools.exclude-package-data]
+netbox_drawio = ["**/__pycache__/*", "**/*.py[cod]"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"netbox_drawio/tables.py" = ["E501"]
+"netbox_drawio/migrations/*" = ["E501"]

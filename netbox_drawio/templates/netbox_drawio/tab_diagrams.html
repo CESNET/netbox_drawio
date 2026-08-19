@@ -1,0 +1,77 @@
+{% extends base_template %}
+{% load helpers %}
+{% load i18n %}
+{% block extra_controls %}
+    {% if perms.netbox_drawio.add_diagram %}
+        <a href="{% url 'plugins:netbox_drawio:diagram_add' %}?object_type={{ object|content_type_id }}&object_id={{ object.pk }}&return_url={{ request.path|urlencode }}"
+           class="btn btn-primary">
+            <span class="mdi mdi-plus-thick" aria-hidden="true"></span> {% trans "Add Diagram" %}
+        </a>
+    {% endif %}
+    {% if perms.netbox_drawio.add_diagramassignment %}
+        <a href="{% url 'plugins:netbox_drawio:diagram_link' %}?object_type={{ object|content_type_id }}&object_id={{ object.pk }}&return_url={{ request.path|urlencode }}"
+           class="btn btn-outline-primary">
+            <span class="mdi mdi-link-variant" aria-hidden="true"></span> {% trans "Link Existing" %}
+        </a>
+    {% endif %}
+{% endblock extra_controls %}
+{% block content %}
+    {% if assignments %}
+        <div class="d-flex flex-wrap">
+            {% for assignment in assignments %}
+                <div class="m-2" style="width: 220px;">
+                    <a href="{{ assignment.diagram.get_absolute_url }}"
+                       class="d-block border rounded p-1 bg-white"
+                       title="{{ assignment.diagram.name }}">
+                        {% if assignment.svg_size %}
+                            <img src="{% url 'plugins:netbox_drawio:diagram_svg' pk=assignment.diagram_id %}"
+                                 style="width: 100%; height: 150px; object-fit: contain;"
+                                 loading="lazy"
+                                 alt="{{ assignment.diagram.name }}">
+                        {% else %}
+                            <div class="d-flex align-items-center justify-content-center text-secondary"
+                                 style="height: 150px;">
+                                <div class="text-center">
+                                    <i class="mdi mdi-drawing display-4"></i>
+                                    <div class="small">{% trans "No preview" %}</div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </a>
+                    <div class="d-flex align-items-center justify-content-between mt-1">
+                        <a href="{{ assignment.diagram.get_absolute_url }}"
+                           class="text-truncate"
+                           title="{{ assignment.diagram.name }}">{{ assignment.diagram.name }}</a>
+                        <span class="text-nowrap">
+                            {% if perms.netbox_drawio.change_diagram %}
+                                <a href="{% url 'plugins:netbox_drawio:diagram_editor' pk=assignment.diagram_id %}?return_url={{ request.path|urlencode }}"
+                                   class="btn btn-sm btn-ghost-warning"
+                                   title="{% trans 'Open editor' %}">
+                                    <i class="mdi mdi-pencil-ruler"></i>
+                                </a>
+                            {% endif %}
+                            {% if perms.netbox_drawio.delete_diagramassignment %}
+                                <a href="{% url 'plugins:netbox_drawio:diagramassignment_delete' pk=assignment.pk %}?return_url={{ request.path|urlencode }}"
+                                   class="btn btn-sm btn-ghost-danger"
+                                   title="{% trans 'Unlink from this object' %}">
+                                    <i class="mdi mdi-link-variant-off"></i>
+                                </a>
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% if assignment.diagram.description %}
+                        <div class="small text-secondary text-truncate" title="{{ assignment.diagram.description }}">
+                            {{ assignment.diagram.description }}
+                        </div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            {% blocktrans with object_type=object|meta:"verbose_name" %}
+                No diagrams have been assigned to this {{ object_type }}.
+            {% endblocktrans %}
+        </div>
+    {% endif %}
+{% endblock content %}

@@ -1,0 +1,103 @@
+{% extends "generic/object.html" %}
+{% load render_table from django_tables2 %}
+{% load helpers %}
+{% load plugins %}
+{% load i18n %}
+{% block extra_controls %}
+    {% if perms.netbox_drawio.change_diagram %}
+        <a href="{% url 'plugins:netbox_drawio:diagram_editor' pk=object.pk %}?return_url={{ request.path|urlencode }}"
+           class="btn btn-primary">
+            <i class="mdi mdi-pencil-ruler" aria-hidden="true"></i> {% trans "Edit Diagram" %}
+        </a>
+    {% endif %}
+{% endblock extra_controls %}
+{% block content %}
+    <div class="row mb-3">
+        <div class="col col-md-6">
+            <div class="card">
+                <h5 class="card-header">{% trans "Diagram" %}</h5>
+                <div class="card-body">
+                    <table class="table table-hover attr-table">
+                        <tr>
+                            <th scope="row">{% trans "Name" %}</th>
+                            <td>{{ object.name }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">{% trans "Description" %}</th>
+                            <td>{{ object.description|placeholder }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">{% trans "Source" %}</th>
+                            <td>
+                                {% if object.source_xml %}
+                                    <a href="{% url 'plugins:netbox_drawio:diagram_source' pk=object.pk %}"
+                                       class="btn btn-sm btn-primary"
+                                       title="{% trans 'Download draw.io source' %}">
+                                        <i class="mdi mdi-download"></i> .drawio
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">{% trans "empty" %}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th scope="row">{% trans "Created" %}</th>
+                            <td>{{ object.created }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">{% trans "Updated" %}</th>
+                            <td>{{ object.last_updated }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            {% include "inc/panels/custom_fields.html" %}
+            {% include "inc/panels/tags.html" %}
+            {% include "inc/panels/comments.html" %}
+            {% plugin_left_page object %}
+        </div>
+        <div class="col col-md-6">
+            <div class="card">
+                <h5 class="card-header">{% trans "Preview" %}</h5>
+                <div class="card-body text-center">
+                    {% if object.svg_cache %}
+                        <a href="{% url 'plugins:netbox_drawio:diagram_svg' pk=object.pk %}" target="_blank">
+                            <img src="{% url 'plugins:netbox_drawio:diagram_svg' pk=object.pk %}"
+                                 style="max-width: 100%;"
+                                 alt="{{ object.name }}">
+                        </a>
+                    {% else %}
+                        <span class="text-muted">
+                            {% trans "No diagram content yet." %}
+                            {% if perms.netbox_drawio.change_diagram %}
+                                {% trans "Use the Edit Diagram button to start drawing." %}
+                            {% endif %}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+            {% plugin_right_page object %}
+        </div>
+    </div>
+    <div class="row mb-3">
+        <div class="col col-md-12">
+            <div class="card">
+                <h5 class="card-header">
+                    {% trans "Assigned To" %}
+                    <div class="card-actions">
+                        {% if perms.netbox_drawio.add_diagramassignment %}
+                            <a href="{% url 'plugins:netbox_drawio:diagram_link' %}?diagram={{ object.pk }}&return_url={{ request.path|urlencode }}"
+                               class="btn btn-ghost-primary btn-sm">
+                                <i class="mdi mdi-link-variant" aria-hidden="true"></i> {% trans "Assign to Object" %}
+                            </a>
+                        {% endif %}
+                    </div>
+                </h5>
+                <div class="card-body">{% render_table assignments_table %}</div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col col-md-12">{% plugin_full_width_page object %}</div>
+    </div>
+{% endblock content %}

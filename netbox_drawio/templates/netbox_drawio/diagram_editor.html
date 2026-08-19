@@ -1,0 +1,30 @@
+{% extends "base/layout.html" %}
+{% load static %}
+{% load i18n %}
+{% block title %}
+    {{ object.name }} | {% trans "Diagram Editor" %}
+{% endblock title %}
+{% block content %}
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <div>
+            <a href="{{ return_url }}" class="btn btn-outline-secondary btn-sm">
+                <i class="mdi mdi-arrow-left" aria-hidden="true"></i> {% trans "Back" %}
+            </a>
+            <span class="ms-2 fw-bold">{{ object.name }}</span>
+        </div>
+        <span id="drawio-status" class="text-muted small">{% trans "Loading editor…" %}</span>
+    </div>
+    <iframe id="drawio-frame"
+            src="{{ embed_url }}"
+            title="draw.io editor"
+            style="width: 100%;
+                   height: calc(100vh - 180px);
+                   min-height: 500px;
+                   border: 1px solid var(--tblr-border-color, #ccc);
+                   border-radius: 4px;
+                   background: #fff"></iframe>
+    {{ drawio_config|json_script:"drawio-config" }}
+{% endblock content %}
+{% block javascript %}
+    <script src="{% static 'netbox_drawio/js/embed.js' %}" defer></script>
+{% endblock javascript %}
