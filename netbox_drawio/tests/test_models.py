@@ -25,9 +25,34 @@ class DiagramModelTest(TestCase):
         diagram.save()
         self.assertNotEqual(diagram.content_hash, original_hash)
 
+        # Clearing the XML alone still yields a hash — the cached SVG contributes too
         diagram.source_xml = ""
         diagram.save()
+        self.assertEqual(len(diagram.content_hash), 64)
+
+    def test_content_hash_covers_svg_cache(self):
+        diagram = make_diagram("SvgHash")
+        original_hash = diagram.content_hash
+
+        diagram.svg_cache = diagram.svg_cache.replace("lightblue", "salmon")
+        diagram.save()
+        self.assertNotEqual(diagram.content_hash, original_hash)
+
+        diagram.source_xml = ""
+        diagram.svg_cache = ""
+        diagram.save()
         self.assertEqual(diagram.content_hash, "")
+
+    def test_save_deferred_instance_skips_blob_query(self):
+        diagram = make_diagram("Deferred")
+        original_hash = diagram.content_hash
+
+        deferred = Diagram.objects.defer("source_xml", "svg_cache").get(pk=diagram.pk)
+        deferred.name = "Deferred renamed"
+        with CaptureQueriesContext(connection) as ctx:
+            deferred.save()
+        self.assertFalse(any("source_xml" in q["sql"] or "svg_cache" in q["sql"] for q in ctx.captured_queries))
+        self.assertEqual(Diagram.objects.get(pk=diagram.pk).content_hash, original_hash)
 
     def test_serialize_object_excludes_blobs(self):
         diagram = make_diagram("Serialized")

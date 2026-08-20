@@ -28,6 +28,18 @@ from netbox_drawio.utils import (
 SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; sandbox"
 
 
+def if_none_match_matches(header, etag):
+    """
+    Weak comparison of an If-None-Match header (possibly multi-value, possibly
+    W/-prefixed entity tags) against a single entity tag, per RFC 9110 §13.1.2.
+    """
+    if not header:
+        return False
+    if header.strip() == "*":
+        return True
+    return any(candidate.strip().removeprefix("W/") == etag for candidate in header.split(","))
+
+
 @register_model_view(models.Diagram, name="", detail=True)
 class DiagramView(generic.ObjectView):
     queryset = models.Diagram.objects.select_related(
@@ -264,7 +276,7 @@ class DiagramSVGView(ConditionalLoginRequiredMixin, View):
             etag = f'"{diagram.last_updated.timestamp()}"'
         else:
             etag = None
-        if etag and request.headers.get("If-None-Match") == etag:
+        if etag and if_none_match_matches(request.headers.get("If-None-Match"), etag):
             return HttpResponseNotModified()
 
         response = HttpResponse(diagram.svg_cache, content_type="image/svg+xml; charset=utf-8")

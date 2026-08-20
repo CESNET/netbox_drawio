@@ -177,6 +177,43 @@ class DiagramSVGSourceViewTest(ModelViewTestCase):
         second = self.client.get(self._get_url("svg", self.diagram), HTTP_IF_NONE_MATCH=etag)
         self.assertHttpStatus(second, 304)
 
+    def test_svg_etag_changes_on_svg_only_update(self):
+        self.add_permissions("netbox_drawio.view_diagram")
+        first = self.client.get(self._get_url("svg", self.diagram))
+        etag = first["ETag"]
+
+        diagram = Diagram.objects.get(pk=self.diagram.pk)
+        diagram.svg_cache = diagram.svg_cache.replace("lightblue", "salmon")
+        diagram.save()
+
+        second = self.client.get(self._get_url("svg", self.diagram), HTTP_IF_NONE_MATCH=etag)
+        self.assertHttpStatus(second, 200)
+        self.assertNotEqual(second["ETag"], etag)
+
+    def test_svg_etag_weak_if_none_match(self):
+        self.add_permissions("netbox_drawio.view_diagram")
+        etag = self.client.get(self._get_url("svg", self.diagram))["ETag"]
+        response = self.client.get(self._get_url("svg", self.diagram), HTTP_IF_NONE_MATCH=f"W/{etag}")
+        self.assertHttpStatus(response, 304)
+
+    def test_svg_etag_multivalue_if_none_match(self):
+        self.add_permissions("netbox_drawio.view_diagram")
+        etag = self.client.get(self._get_url("svg", self.diagram))["ETag"]
+        response = self.client.get(
+            self._get_url("svg", self.diagram),
+            HTTP_IF_NONE_MATCH=f'"stale-tag", {etag}, W/"other-tag"',
+        )
+        self.assertHttpStatus(response, 304)
+
+    def test_svg_etag_non_matching_multivalue_returns_200(self):
+        self.add_permissions("netbox_drawio.view_diagram")
+        self.client.get(self._get_url("svg", self.diagram))
+        response = self.client.get(
+            self._get_url("svg", self.diagram),
+            HTTP_IF_NONE_MATCH='"stale-tag", W/"other-tag"',
+        )
+        self.assertHttpStatus(response, 200)
+
     def test_svg_404_when_empty(self):
         self.add_permissions("netbox_drawio.view_diagram")
         response = self.client.get(self._get_url("svg", self.empty))

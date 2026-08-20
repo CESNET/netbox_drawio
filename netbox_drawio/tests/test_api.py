@@ -40,6 +40,28 @@ class DiagramAPITest(
         make_diagram("Existing Diagram 2")
         make_diagram("Existing Diagram 3")
 
+    def test_svg_only_patch_changes_hash_and_creates_objectchange(self):
+        from core.models import ObjectChange
+
+        diagram = Diagram.objects.get(name="Existing Diagram 1")
+        original_hash = diagram.content_hash
+        self.add_permissions("netbox_drawio.change_diagram")
+        response = self.client.patch(
+            self._get_detail_url(diagram),
+            {"svg_cache": diagram.svg_cache.replace("lightblue", "salmon")},
+            format="json",
+            **self.header,
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        diagram.refresh_from_db()
+        self.assertNotEqual(diagram.content_hash, original_hash)
+
+        oc = ObjectChange.objects.filter(changed_object_id=diagram.pk).order_by("-time").first()
+        self.assertIsNotNone(oc)
+        self.assertEqual(oc.postchange_data.get("content_hash"), diagram.content_hash)
+        self.assertNotIn("svg_cache", oc.postchange_data)
+
     @override_settings(PLUGINS_CONFIG={"netbox_drawio": {"max_size": 50}})
     def test_oversize_source_xml_rejected(self):
         self.add_permissions("netbox_drawio.add_diagram")

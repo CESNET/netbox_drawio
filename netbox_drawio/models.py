@@ -38,7 +38,7 @@ class Diagram(PrimaryModel):
         blank=True,
         default="",
         editable=False,
-        help_text="SHA-256 of the diagram source; stands in for the excluded blobs in the change log",
+        help_text="SHA-256 over the diagram source and cached SVG; stands in for the excluded blobs in the change log",
     )
 
     clone_fields = ("description",)
@@ -64,8 +64,23 @@ class Diagram(PrimaryModel):
         return super().serialize_object(exclude=[*(exclude or []), *CHANGELOG_EXCLUDED_FIELDS])
 
     def save(self, *args, **kwargs):
-        self.content_hash = hashlib.sha256(self.source_xml.encode("utf-8")).hexdigest() if self.source_xml else ""
+        # Deferred blob fields are untouched (assignment removes a field from the
+        # deferred set), so keep the stored hash rather than fetching them back.
+        deferred = self.get_deferred_fields()
+        if not deferred.intersection(CHANGELOG_EXCLUDED_FIELDS):
+            self.content_hash = self._compute_content_hash()
         super().save(*args, **kwargs)
+
+    def _compute_content_hash(self):
+        # Both blobs feed the hash: it doubles as the SVG endpoint's ETag, so an
+        # SVG-only update must produce a new value. NUL separator prevents
+        # xml/svg boundary ambiguity (neither field can contain NUL).
+        if not (self.source_xml or self.svg_cache):
+            return ""
+        hasher = hashlib.sha256(self.source_xml.encode("utf-8"))
+        hasher.update(b"\x00")
+        hasher.update(self.svg_cache.encode("utf-8"))
+        return hasher.hexdigest()
 
 
 class DiagramAssignment(NetBoxModel):
