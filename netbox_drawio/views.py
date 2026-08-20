@@ -1,5 +1,7 @@
 import json
 
+from django.conf import settings
+from django.core.exceptions import RequestDataTooBig
 from django.db.models import Count
 from django.db.models.functions import Length
 from django.http import HttpResponse, HttpResponseNotModified, JsonResponse
@@ -12,6 +14,7 @@ from netbox.views import generic
 from utilities.views import ConditionalLoginRequiredMixin, register_model_view
 
 from netbox_drawio import filtersets, forms, models, tables
+from netbox_drawio.constants import SAVE_BODY_BUDGET_FACTOR
 from netbox_drawio.utils import (
     build_embed_url,
     decode_svg_data_uri,
@@ -185,11 +188,24 @@ class DiagramSaveView(ConditionalLoginRequiredMixin, View):
             content_length = int(request.headers.get("Content-Length") or 0)
         except (TypeError, ValueError):
             content_length = 0
-        if content_length > max_size * 3:
+        if content_length > max_size * SAVE_BODY_BUDGET_FACTOR:
             return JsonResponse({"error": "Request too large"}, status=413)
 
         try:
             data = json.loads(request.body)
+        except RequestDataTooBig:
+            # Django caps request bodies below our own limit by default; without this
+            # the editor only ever sees a generic 400.
+            return JsonResponse(
+                {
+                    "error": (
+                        "Request body exceeds Django's DATA_UPLOAD_MAX_MEMORY_SIZE "
+                        f"({settings.DATA_UPLOAD_MAX_MEMORY_SIZE} bytes). Ask the NetBox administrator "
+                        f"to raise it above {SAVE_BODY_BUDGET_FACTOR}x the plugin's max_size, or lower max_size."
+                    )
+                },
+                status=413,
+            )
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON payload"}, status=400)
         if not isinstance(data, dict):

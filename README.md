@@ -54,7 +54,7 @@ All settings are optional (`PLUGINS_CONFIG["netbox_drawio"] = {...}`):
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `drawio_base_url` | `https://embed.diagrams.net/` | Editor URL loaded in the iframe. Point it at a self-hosted draw.io for offline/private setups. Also used as the `postMessage` origin allowlist. |
+| `drawio_base_url` | `https://embed.diagrams.net/` | Editor URL loaded in the iframe. Point it at a self-hosted draw.io for offline/private setups. Also used as the `postMessage` origin allowlist, so it must be an absolute `http(s)` URL (a system check warns otherwise, `netbox_drawio.W001`). |
 | `drawio_url_params` | `{}` | Extra query params for the embed URL (`ui`, `dark`, `libraries`, `lang`, …). `embed`, `proto` and `spin` are always forced. |
 | `autosave` | `False` | Persist draw.io autosave events (save on every change instead of explicit Save). |
 | `applied_scope` | `model` | `app` or `model` — how `scope_filter` entries are interpreted (netbox-attachments semantics). |
@@ -63,7 +63,7 @@ All settings are optional (`PLUGINS_CONFIG["netbox_drawio"] = {...}`):
 | `excluded_models` | `[]` | Deny-list of `app.model` labels; always wins. |
 | `tab_weight` | `6500` | Diagrams tab position (Images = 6000, Journal = 9000). |
 | `hide_empty_tab` | `False` | Hide the tab when the object has no diagrams. |
-| `max_size` | `10485760` | Max size in bytes for diagram XML and SVG, each. |
+| `max_size` | `10485760` | Max size in bytes for diagram XML and SVG, each. Django's `DATA_UPLOAD_MAX_MEMORY_SIZE` (2.5 MB by default) also caps the save request body — raise it to at least 3× `max_size` in the NetBox configuration or saves fail with a 413 well below this limit (a system check warns when `max_size` is unreachable, `netbox_drawio.W002`). |
 
 ### Self-hosted draw.io
 

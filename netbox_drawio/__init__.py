@@ -59,7 +59,7 @@ class NetBoxDrawioConfig(PluginConfig):
 
     def ready(self):
         super().ready()
-        from netbox_drawio import signals  # noqa: F401
+        from netbox_drawio import checks, signals  # noqa: F401
 
 
 config = NetBoxDrawioConfig
