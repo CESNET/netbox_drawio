@@ -57,5 +57,9 @@ class NetBoxDrawioConfig(PluginConfig):
     min_version = "4.5.0"
     max_version = "4.6.99"
 
+    def ready(self):
+        super().ready()
+        from netbox_drawio import signals  # noqa: F401
+
 
 config = NetBoxDrawioConfig

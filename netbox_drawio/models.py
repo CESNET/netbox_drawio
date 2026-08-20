@@ -4,13 +4,9 @@ import logging
 from core.models.object_types import ObjectType
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
-from django.db.models.signals import pre_delete
-from django.dispatch import receiver
 from django.urls import reverse
 from netbox.models import NetBoxModel, PrimaryModel
 from utilities.querysets import RestrictedQuerySet
-
-from netbox_drawio.constants import PRE_DELETE_SKIPPED_APPS
 
 logger = logging.getLogger(__name__)
 
@@ -130,29 +126,3 @@ class DiagramAssignment(NetBoxModel):
 
     def get_absolute_url(self):
         return reverse("plugins:netbox_drawio:diagramassignment", args=[self.pk])
-
-
-@receiver(pre_delete)
-def pre_delete_receiver(sender, instance, **kwargs):
-    """
-    When a NetBox object is deleted, remove all of its diagram assignments.
-    Diagrams themselves are not deleted; they persist until explicitly removed.
-    """
-    # Skip if the sender is one of our own models (avoid recursion)
-    if sender in (Diagram, DiagramAssignment):
-        return
-    # Skip high-frequency Django internal models
-    if sender._meta.app_label in PRE_DELETE_SKIPPED_APPS:
-        return
-
-    try:
-        object_type = ObjectType.objects.get_for_model(instance)
-    except ObjectType.DoesNotExist:
-        return
-
-    try:
-        # Delete the assignments for this object; diagrams are left intact
-        DiagramAssignment.objects.filter(object_type_id=object_type.id, object_id=instance.pk).delete()
-    except (TypeError, ValueError):
-        # instance.pk is not an integer type — no assignments can exist for it
-        return
