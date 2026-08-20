@@ -25,6 +25,10 @@
         return;
     }
 
+    // The server sends a browser-normalized origin, or null when drawio_base_url is
+    // unusable — surface that instead of silently dropping every message.
+    const embedOrigin = typeof cfg.embedOrigin === "string" ? cfg.embedOrigin.toLowerCase() : "";
+
     let stashedXml = null; // latest edit awaiting its SVG export
     let stashSeq = 0; // increments on every save/autosave; tags payloads
     let pending = null; // newest {seq, xml, svg} awaiting POST
@@ -39,7 +43,7 @@
     }
 
     function post(message) {
-        frame.contentWindow.postMessage(JSON.stringify(message), cfg.embedOrigin);
+        frame.contentWindow.postMessage(JSON.stringify(message), embedOrigin);
     }
 
     function stash(xml) {
@@ -104,8 +108,13 @@
             });
     }
 
+    if (!embedOrigin) {
+        setStatus("Editor misconfigured: drawio_base_url is not an absolute http(s) URL.", true);
+        return;
+    }
+
     window.addEventListener("message", function (event) {
-        if (event.origin !== cfg.embedOrigin || typeof event.data !== "string" || !event.data.length) {
+        if (event.origin.toLowerCase() !== embedOrigin || typeof event.data !== "string" || !event.data.length) {
             return;
         }
 

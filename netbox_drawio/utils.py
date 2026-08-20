@@ -143,8 +143,27 @@ def decode_svg_data_uri(data_uri):
 
 
 def get_embed_origin(embed_url):
-    """Origin of the draw.io embed URL, used as the postMessage origin allowlist."""
+    """
+    Browser-normalized origin of the draw.io embed URL, used as the postMessage
+    origin allowlist: lowercase scheme and host, default ports dropped — matching
+    what the browser reports in event.origin. Returns None for anything that is
+    not an absolute http(s) URL, so callers can fail loudly instead of comparing
+    against an origin that can never match.
+    """
     from urllib.parse import urlsplit
 
-    parts = urlsplit(embed_url)
-    return f"{parts.scheme}://{parts.netloc}"
+    try:
+        parts = urlsplit(str(embed_url))
+        hostname = parts.hostname
+        port = parts.port  # raises ValueError on a non-numeric port
+    except ValueError:
+        return None
+
+    scheme = parts.scheme.lower()
+    if scheme not in ("http", "https") or not hostname:
+        return None
+
+    host = f"[{hostname}]" if ":" in hostname else hostname
+    if port and port != {"http": 80, "https": 443}[scheme]:
+        return f"{scheme}://{host}:{port}"
+    return f"{scheme}://{host}"

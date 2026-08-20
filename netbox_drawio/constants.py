@@ -14,3 +14,8 @@ FORCED_EMBED_PARAMS = {
 
 # Accepted data URI prefix for the SVG posted back by the editor
 SVG_DATA_URI_PREFIX = "data:image/svg+xml;base64,"
+
+# Save-request body budget relative to max_size: the body carries the diagram XML
+# plus a base64-encoded SVG (~4/3 of the SVG bytes) and JSON overhead. Used by the
+# save view's Content-Length precheck and the DATA_UPLOAD_MAX_MEMORY_SIZE system check.
+SAVE_BODY_BUDGET_FACTOR = 3

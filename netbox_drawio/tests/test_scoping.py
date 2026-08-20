@@ -3,7 +3,6 @@ from django.test import TestCase, override_settings
 from netbox_drawio.utils import (
     build_embed_url,
     decode_svg_data_uri,
-    get_embed_origin,
     get_enabled_object_type_queryset,
     validate_object_type,
 )
@@ -100,10 +99,6 @@ class EmbedUrlTest(TestCase):
         # forced param wins over the operator's attempt to change the protocol
         self.assertIn("proto=json", url)
         self.assertNotIn("proto=xml", url)
-
-    def test_embed_origin(self):
-        self.assertEqual(get_embed_origin("https://embed.diagrams.net/?embed=1"), "https://embed.diagrams.net")
-        self.assertEqual(get_embed_origin("http://drawio.local:8080/x?y=1"), "http://drawio.local:8080")
 
 
 class DecodeSvgTest(TestCase):

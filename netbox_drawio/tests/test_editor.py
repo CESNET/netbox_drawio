@@ -32,6 +32,13 @@ class DiagramEditorViewTest(ModelViewTestCase):
         self.assertIn("drawio-config", content)
         self.assertIn("embed.diagrams.net", content)
 
+    @override_settings(PLUGINS_CONFIG={"netbox_drawio": {"drawio_base_url": "https://EMBED.diagrams.net:443/"}})
+    def test_editor_normalizes_embed_origin(self):
+        self.add_permissions("netbox_drawio.view_diagram", "netbox_drawio.change_diagram")
+        response = self.client.get(self._get_url("editor", self.diagram))
+        self.assertHttpStatus(response, 200)
+        self.assertEqual(response.context["drawio_config"]["embedOrigin"], "https://embed.diagrams.net")
+
     def test_editor_rejects_offsite_return_url(self):
         self.add_permissions("netbox_drawio.view_diagram", "netbox_drawio.change_diagram")
         response = self.client.get(self._get_url("editor", self.diagram) + "?return_url=https://evil.example/x")
@@ -110,6 +117,13 @@ class DiagramSaveViewTest(ModelViewTestCase):
         self.add_permissions("netbox_drawio.change_diagram")
         response = self._save({"xml": SAMPLE_XML})
         self.assertHttpStatus(response, 413)
+
+    @override_settings(DATA_UPLOAD_MAX_MEMORY_SIZE=200)
+    def test_save_body_over_django_limit_returns_actionable_413(self):
+        self.add_permissions("netbox_drawio.change_diagram")
+        response = self._save({"xml": SAMPLE_XML, "padding": "x" * 500})
+        self.assertHttpStatus(response, 413)
+        self.assertIn("DATA_UPLOAD_MAX_MEMORY_SIZE", response.json()["error"])
 
     def test_save_get_not_allowed(self):
         self.add_permissions("netbox_drawio.change_diagram")
