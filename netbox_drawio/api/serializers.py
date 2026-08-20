@@ -44,6 +44,13 @@ class DiagramAssignmentSerializer(NetBoxModelSerializer):
         ]
         brief_fields = ("id", "url", "display", "object_type", "object_id")
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        # "diagram" is absent in brief mode (not in brief_fields)
+        if request and hasattr(request, "user") and "diagram" in self.fields:
+            self.fields["diagram"].queryset = Diagram.objects.restrict(request.user, "view")
+
     def validate(self, data):
         # Validate that the parent object exists.
         # Fall back to instance values so PATCH requests that only supply one
@@ -55,12 +62,14 @@ class DiagramAssignmentSerializer(NetBoxModelSerializer):
             model_class = object_type.model_class()
             if model_class is None or not validate_object_type(model_class):
                 raise serializers.ValidationError({"object_type": "This object type is not permitted for diagrams."})
-            try:
-                object_type.get_object_for_this_type(id=object_id)
-            except ObjectDoesNotExist:
-                raise serializers.ValidationError(
-                    "Invalid parent object: {} ID {}".format(object_type, object_id)
-                ) from None
+            # Restrict to objects the requesting user may view, so forbidden and
+            # nonexistent pks are indistinguishable (no existence oracle).
+            queryset = model_class.objects.all()
+            request = self.context.get("request")
+            if request and hasattr(request, "user") and hasattr(queryset, "restrict"):
+                queryset = queryset.restrict(request.user, "view")
+            if not queryset.filter(pk=object_id).exists():
+                raise serializers.ValidationError("Invalid parent object: {} ID {}".format(object_type, object_id))
         return super().validate(data)
 
     def get_parent(self, obj):
@@ -71,6 +80,14 @@ class DiagramAssignmentSerializer(NetBoxModelSerializer):
 
         if parent is None:
             return None
+
+        # Hide parents the requesting user is not permitted to view. This costs
+        # one extra query per row on list views; accepted for correctness.
+        request = self.context.get("request")
+        queryset = type(parent).objects.all()
+        if request and hasattr(request, "user") and hasattr(queryset, "restrict"):
+            if not queryset.restrict(request.user, "view").filter(pk=parent.pk).exists():
+                return None
 
         serializer = get_serializer_for_model(parent.__class__)
         return serializer(parent, nested=True, context=self.context).data

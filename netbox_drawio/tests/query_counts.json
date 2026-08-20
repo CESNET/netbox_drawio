@@ -1,6 +1,6 @@
 {
   "diagram:api_list_objects": 13,
   "diagram:list_objects_with_permission": 23,
-  "diagramassignment:api_list_objects": 14,
+  "diagramassignment:api_list_objects": 16,
   "diagramassignment:list_objects_with_permission": 34
 }
