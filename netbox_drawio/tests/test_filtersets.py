@@ -77,7 +77,8 @@ class DiagramAssignmentFilterSetTest(TestCase):
         self.assertEqual(self.filter({"object_type_id": [self.a1.object_type_id]}).count(), 3)
 
     def test_object_id(self):
-        self.assertEqual(self.filter({"object_id": self.device2.pk}).count(), 2)
+        self.assertEqual(self.filter({"object_id": [self.device2.pk]}).count(), 2)
+        self.assertEqual(self.filter({"object_id": [self.device1.pk, self.device2.pk]}).count(), 3)
 
     def test_q(self):
         self.assertEqual(self.filter({"q": "Alpha"}).count(), 2)

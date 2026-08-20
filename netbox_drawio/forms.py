@@ -20,7 +20,7 @@ from utilities.forms.fields import (
 )
 from utilities.forms.utils import get_field_value
 from utilities.forms.widgets import HTMXSelect
-from utilities.forms.widgets.apiselect import APISelect, APISelectMultiple
+from utilities.forms.widgets.apiselect import APISelect
 from utilities.views import get_action_url
 
 from netbox_drawio.models import Diagram, DiagramAssignment
@@ -174,8 +174,9 @@ class DiagramAssignmentForm(NetBoxModelForm):
 
 class DiagramFilterForm(PrimaryModelFilterSetForm):
     model = Diagram
-    name = forms.CharField(required=False)
-    description = forms.CharField(required=False)
+    # Substring semantics for the UI text boxes; plain ?name= is exact-match
+    name__ic = forms.CharField(required=False, label=_("Name"))
+    description__ic = forms.CharField(required=False, label=_("Description"))
     object_type_id = DynamicModelChoiceField(
         queryset=ObjectType.objects.all(),
         required=False,
@@ -202,9 +203,6 @@ class DiagramAssignmentFilterForm(NetBoxModelFilterSetForm):
         queryset=Diagram.objects.all(),
         required=False,
         label=_("Diagram"),
-        widget=APISelectMultiple(
-            api_url="/api/plugins/drawio/diagrams/",
-        ),
     )
     object_type_id = ContentTypeMultipleChoiceField(
         queryset=ObjectType.objects.all(),
@@ -212,6 +210,11 @@ class DiagramAssignmentFilterForm(NetBoxModelFilterSetForm):
         label=_("Object Type"),
     )
     tag = TagFilterField(model)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Deferred like DiagramLinkForm: the enabled-type allowlist depends on runtime config
+        self.fields["object_type_id"].queryset = get_enabled_object_type_queryset().order_by("app_label", "model")
 
 
 class DiagramBulkEditForm(PrimaryModelBulkEditForm):

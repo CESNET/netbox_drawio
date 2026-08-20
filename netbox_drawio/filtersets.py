@@ -57,10 +57,6 @@ class DiagramAssignmentFilterSet(NetBoxModelFilterSet):
         queryset=ObjectType.objects.all(),
         label="Object Type (ID)",
     )
-    object_id = django_filters.NumberFilter(
-        field_name="object_id",
-        label="Object ID",
-    )
 
     class Meta:
         model = DiagramAssignment
