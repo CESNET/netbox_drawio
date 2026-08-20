@@ -1,12 +1,42 @@
+import uuid
+
+from django.db import models as django_models
 from django.test import TestCase, override_settings
+from utilities.querysets import RestrictedQuerySet
 
 from netbox_drawio.utils import (
     build_embed_url,
     decode_svg_data_uri,
     get_enabled_object_type_queryset,
+    get_tab_unsupported_reason,
     validate_object_type,
 )
 from netbox_drawio.tests.utils import SAMPLE_SVG, sample_svg_data_uri
+
+
+class DiagramsTabSupportedModel(django_models.Model):
+    """Int pk + RestrictedQuerySet manager — the shape the Diagrams tab requires."""
+
+    objects = RestrictedQuerySet.as_manager()
+
+    class Meta:
+        app_label = "netbox_drawio"
+        managed = False
+
+
+class DiagramsTabPlainManagerModel(django_models.Model):
+    class Meta:
+        app_label = "netbox_drawio"
+        managed = False
+
+
+class DiagramsTabUUIDPkModel(django_models.Model):
+    id = django_models.UUIDField(primary_key=True, default=uuid.uuid4)
+    objects = RestrictedQuerySet.as_manager()
+
+    class Meta:
+        app_label = "netbox_drawio"
+        managed = False
 
 
 class ValidateObjectTypeTest(TestCase):
@@ -73,6 +103,42 @@ class ValidateObjectTypeTest(TestCase):
         self.assertIn("dcim.device", labels)
         self.assertNotIn("extras.tag", labels)
         self.assertNotIn("netbox_drawio.diagram", labels)
+
+
+class DiagramsTabGuardTest(TestCase):
+    def test_supported_models_pass(self):
+        from dcim.models import Device, Site
+
+        self.assertIsNone(get_tab_unsupported_reason(DiagramsTabSupportedModel))
+        self.assertIsNone(get_tab_unsupported_reason(Device))
+        self.assertIsNone(get_tab_unsupported_reason(Site))
+
+    def test_plain_manager_rejected(self):
+        self.assertIsNotNone(get_tab_unsupported_reason(DiagramsTabPlainManagerModel))
+
+    def test_uuid_pk_rejected(self):
+        self.assertIsNotNone(get_tab_unsupported_reason(DiagramsTabUUIDPkModel))
+
+    def test_core_models_still_registered(self):
+        from netbox.registry import registry
+
+        for app_label, model_name in [
+            ("dcim", "device"),
+            ("dcim", "site"),
+            ("ipam", "prefix"),
+            ("virtualization", "virtualmachine"),
+        ]:
+            names = [v["name"] for v in registry["views"][app_label][model_name]]
+            self.assertIn("diagrams", names, f"{app_label}.{model_name} lost its Diagrams tab")
+
+    def test_badge_returns_zero_on_error(self):
+        from dcim.models import Site
+        from netbox.registry import registry
+
+        view = next(v["view"] for v in registry["views"]["dcim"]["site"] if v["name"] == "diagrams")
+        broken = Site(name="x", slug="x")
+        broken.pk = uuid.uuid4()  # forces ValueError inside the badge query
+        self.assertEqual(view.tab.badge(broken), 0)
 
 
 class EmbedUrlTest(TestCase):
