@@ -8,7 +8,7 @@ from netbox_drawio.utils import (
     build_embed_url,
     decode_svg_data_uri,
     get_enabled_object_type_queryset,
-    get_tab_unsupported_reason,
+    get_model_unsupported_reason,
     validate_object_type,
 )
 from netbox_drawio.tests.utils import SAMPLE_SVG, sample_svg_data_uri
@@ -109,15 +109,15 @@ class DiagramsTabGuardTest(TestCase):
     def test_supported_models_pass(self):
         from dcim.models import Device, Site
 
-        self.assertIsNone(get_tab_unsupported_reason(DiagramsTabSupportedModel))
-        self.assertIsNone(get_tab_unsupported_reason(Device))
-        self.assertIsNone(get_tab_unsupported_reason(Site))
+        self.assertIsNone(get_model_unsupported_reason(DiagramsTabSupportedModel))
+        self.assertIsNone(get_model_unsupported_reason(Device))
+        self.assertIsNone(get_model_unsupported_reason(Site))
 
     def test_plain_manager_rejected(self):
-        self.assertIsNotNone(get_tab_unsupported_reason(DiagramsTabPlainManagerModel))
+        self.assertIsNotNone(get_model_unsupported_reason(DiagramsTabPlainManagerModel))
 
     def test_uuid_pk_rejected(self):
-        self.assertIsNotNone(get_tab_unsupported_reason(DiagramsTabUUIDPkModel))
+        self.assertIsNotNone(get_model_unsupported_reason(DiagramsTabUUIDPkModel))
 
     def test_core_models_still_registered(self):
         from netbox.registry import registry
@@ -139,6 +139,33 @@ class DiagramsTabGuardTest(TestCase):
         broken = Site(name="x", slug="x")
         broken.pk = uuid.uuid4()  # forces ValueError inside the badge query
         self.assertEqual(view.tab.badge(broken), 0)
+
+
+class PickerGuardTest(TestCase):
+    def test_picker_excludes_unsupported_models(self):
+        from unittest import mock
+
+        from core.models.object_types import ObjectType
+        from dcim.models import Device
+
+        # Give the throwaway models ObjectType rows, so their absence below proves
+        # the guard rejected them rather than a content type simply not existing
+        for model in (DiagramsTabSupportedModel, DiagramsTabPlainManagerModel, DiagramsTabUUIDPkModel):
+            ObjectType.objects.get_for_model(model)
+
+        fake_models = [Device, DiagramsTabSupportedModel, DiagramsTabPlainManagerModel, DiagramsTabUUIDPkModel]
+        with (
+            mock.patch("django.apps.apps.get_models", return_value=fake_models),
+            # The throwaway models live in the hard-excluded netbox_drawio app; bypass
+            # app scoping so this test isolates the manager/pk guard
+            mock.patch("netbox_drawio.utils.validate_object_type", return_value=True),
+        ):
+            labels = {f"{ot.app_label}.{ot.model}" for ot in get_enabled_object_type_queryset()}
+
+        self.assertIn("dcim.device", labels)
+        self.assertIn("netbox_drawio.diagramstabsupportedmodel", labels)
+        self.assertNotIn("netbox_drawio.diagramstabplainmanagermodel", labels)
+        self.assertNotIn("netbox_drawio.diagramstabuuidpkmodel", labels)
 
 
 class EmbedUrlTest(TestCase):

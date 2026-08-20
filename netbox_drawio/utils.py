@@ -1,10 +1,13 @@
 import base64
+import logging
 from urllib.parse import urlencode
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 
 from netbox_drawio.constants import FORCED_EMBED_PARAMS, HARD_EXCLUDED_APPS, SVG_DATA_URI_PREFIX
+
+logger = logging.getLogger(__name__)
 
 
 def _get_plugin_settings():
@@ -77,15 +80,16 @@ def validate_object_type(model):
     return app_label in scope_filter or label_lower in scope_filter
 
 
-def get_tab_unsupported_reason(model):
+def get_model_unsupported_reason(model):
     """
-    Why the Diagrams tab cannot be registered for this model, or None if it can.
+    Why this model cannot host diagram assignments, or None if it can.
 
     Scoping is a deny-list, so arbitrary third-party models land in scope by
-    default — but the tab view calls model.objects.restrict() and the badge
-    filters assignments__object_id (an integer column). A plain Django manager
-    or a non-integer primary key would 500 the tab, and the badge runs on every
-    detail-page render.
+    default — but the tab view calls model.objects.restrict(), and both the tab
+    badge and DiagramAssignment.object_id assume an integer primary key. A plain
+    Django manager or a non-integer pk would 500 the tab (the badge runs on every
+    detail-page render) and break assignment saves, so such models get neither a
+    tab nor a slot in the assignment picker.
     """
     from django.db import models as django_models
 
@@ -101,20 +105,15 @@ def get_tab_unsupported_reason(model):
     return None
 
 
-def get_enabled_object_type_queryset():
+def iter_supported_models():
     """
-    ObjectType queryset limited to models in scope, for the link form's picker.
+    Yield every model that is in scope and technically able to host diagram
+    assignments — the single source of truth for tab registration and the
+    assignment picker.
     """
-    from functools import reduce
-    from operator import or_
-
-    from core.models.object_types import ObjectType
     from django.apps import apps
-    from django.db.models import Q
 
-    q_filters = []
     seen = set()
-
     for model in apps.get_models():
         key = model._meta.label_lower
         if key in seen:
@@ -122,8 +121,27 @@ def get_enabled_object_type_queryset():
         seen.add(key)
         if model._meta.proxy:
             continue
-        if validate_object_type(model):
-            q_filters.append(Q(app_label=model._meta.app_label, model=model._meta.model_name))
+        if not validate_object_type(model):
+            continue
+        unsupported = get_model_unsupported_reason(model)
+        if unsupported:
+            logger.debug(f"Skipping diagrams support for {key}: {unsupported}")
+            continue
+        yield model
+
+
+def get_enabled_object_type_queryset():
+    """
+    ObjectType queryset limited to supported models, used as the link form's
+    picker and the server-side allowlist for assignment targets.
+    """
+    from functools import reduce
+    from operator import or_
+
+    from core.models.object_types import ObjectType
+    from django.db.models import Q
+
+    q_filters = [Q(app_label=model._meta.app_label, model=model._meta.model_name) for model in iter_supported_models()]
 
     if not q_filters:
         return ObjectType.objects.none()

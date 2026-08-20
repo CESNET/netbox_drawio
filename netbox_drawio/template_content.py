@@ -2,7 +2,7 @@ import logging
 
 from django.db.utils import OperationalError
 
-from netbox_drawio.utils import get_setting, get_tab_unsupported_reason, validate_object_type
+from netbox_drawio.utils import get_setting, iter_supported_models
 
 logger = logging.getLogger(__name__)
 
@@ -83,29 +83,7 @@ def get_template_extensions():
     (PluginTemplateExtensions are not used in v1).
     """
     try:
-        from django.apps import apps
-    except Exception:
-        return []
-
-    try:
-        seen_models = set()
-        for model in apps.get_models():
-            model_id = model._meta.label_lower
-            if model_id in seen_models:
-                continue
-            seen_models.add(model_id)
-
-            if model._meta.proxy:
-                continue
-
-            if not validate_object_type(model):
-                continue
-
-            unsupported = get_tab_unsupported_reason(model)
-            if unsupported:
-                logger.debug(f"Skipping Diagrams tab for {model_id}: {unsupported}")
-                continue
-
+        for model in iter_supported_models():
             register_diagrams_tab_view(model)
 
     except OperationalError:
