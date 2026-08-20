@@ -14,7 +14,7 @@ from netbox.views import generic
 from utilities.views import ConditionalLoginRequiredMixin, register_model_view
 
 from netbox_drawio import filtersets, forms, models, tables
-from netbox_drawio.constants import SAVE_BODY_BUDGET_FACTOR
+from netbox_drawio.constants import BLOB_FIELDS, SAVE_BODY_BUDGET_FACTOR
 from netbox_drawio.utils import (
     build_embed_url,
     decode_svg_data_uri,
@@ -31,6 +31,17 @@ def drop_none_values(params):
     stringify None into the literal "None"; omit absent values instead.
     """
     return {key: value for key, value in params.items() if value is not None}
+
+
+def object_context_addanother_params(request):
+    """Carry the object context and a validated return_url over to the next add form."""
+    return drop_none_values(
+        {
+            "object_type": request.GET.get("object_type"),
+            "object_id": request.GET.get("object_id"),
+            "return_url": get_safe_return_url(request),
+        }
+    )
 
 
 # CSP for the raw SVG endpoint: draw.io SVGs need inline styles and data: images/fonts;
@@ -79,7 +90,7 @@ class DiagramListView(generic.ObjectListView):
         "bulk_delete": {"delete"},
     }
     queryset = (
-        models.Diagram.objects.defer("source_xml", "svg_cache")
+        models.Diagram.objects.defer(*BLOB_FIELDS)
         .select_related("owner", "owner__group")
         .prefetch_related("assignments", "assignments__object_type")
         .annotate(
@@ -118,13 +129,7 @@ class DiagramEditView(generic.ObjectEditView):
         return instance
 
     def get_extra_addanother_params(self, request):
-        return drop_none_values(
-            {
-                "object_type": request.GET.get("object_type"),
-                "object_id": request.GET.get("object_id"),
-                "return_url": get_safe_return_url(request),
-            }
-        )
+        return object_context_addanother_params(request)
 
 
 @register_model_view(models.Diagram, name="delete", detail=True)
@@ -135,7 +140,7 @@ class DiagramDeleteView(generic.ObjectDeleteView):
 
 @register_model_view(models.Diagram, "bulk_edit", path="edit", detail=False)
 class DiagramBulkEditView(generic.BulkEditView):
-    queryset = models.Diagram.objects.defer("source_xml", "svg_cache").annotate(
+    queryset = models.Diagram.objects.defer(*BLOB_FIELDS).annotate(
         assignment_count=Count("assignments", distinct=True),
         svg_size=Length("svg_cache"),
     )
@@ -146,7 +151,7 @@ class DiagramBulkEditView(generic.BulkEditView):
 
 @register_model_view(models.Diagram, "bulk_delete", path="delete", detail=False)
 class DiagramBulkDeleteView(generic.BulkDeleteView):
-    queryset = models.Diagram.objects.defer("source_xml", "svg_cache").annotate(
+    queryset = models.Diagram.objects.defer(*BLOB_FIELDS).annotate(
         assignment_count=Count("assignments", distinct=True),
         svg_size=Length("svg_cache"),
     )
@@ -335,20 +340,13 @@ class DiagramLinkView(generic.ObjectEditView):
         return instance
 
     def get_extra_addanother_params(self, request):
-        return_url = get_safe_return_url(request)
         if request.GET.get("diagram"):
             # Diagram-forward flow: keep diagram pre-selected so the user
             # only needs to pick a new target object for the next assignment.
-            return drop_none_values({"diagram": request.GET["diagram"], "return_url": return_url})
+            return drop_none_values({"diagram": request.GET["diagram"], "return_url": get_safe_return_url(request)})
         # Object-forward flow: keep object context so the user keeps linking
         # diagrams to the same object.
-        return drop_none_values(
-            {
-                "object_type": request.GET.get("object_type"),
-                "object_id": request.GET.get("object_id"),
-                "return_url": return_url,
-            }
-        )
+        return object_context_addanother_params(request)
 
 
 @register_model_view(models.DiagramAssignment, name="", detail=True)

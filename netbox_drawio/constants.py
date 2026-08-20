@@ -12,6 +12,10 @@ FORCED_EMBED_PARAMS = {
     "spin": "1",
 }
 
+# The diagram blob fields: excluded from change-log snapshots, deferred by list
+# querysets, and omitted from the API list response
+BLOB_FIELDS = ("source_xml", "svg_cache")
+
 # Accepted data URI prefix for the SVG posted back by the editor
 SVG_DATA_URI_PREFIX = "data:image/svg+xml;base64,"
 

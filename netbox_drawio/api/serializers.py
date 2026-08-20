@@ -5,6 +5,7 @@ from netbox.api.serializers import NetBoxModelSerializer, PrimaryModelSerializer
 from rest_framework import serializers
 from utilities.api import get_serializer_for_model
 
+from netbox_drawio.constants import BLOB_FIELDS
 from netbox_drawio.models import Diagram, DiagramAssignment
 from netbox_drawio.utils import get_setting, validate_object_type
 
@@ -137,8 +138,9 @@ class DiagramListSerializer(DiagramSerializer):
     (10 MB by default) per row. Retrieve a diagram individually to get them.
     """
 
+    # Declared-field removals must stay literal; keep in sync with BLOB_FIELDS
     source_xml = None
     svg_cache = None
 
     class Meta(DiagramSerializer.Meta):
-        fields = [f for f in DiagramSerializer.Meta.fields if f not in ("source_xml", "svg_cache")]
+        fields = [f for f in DiagramSerializer.Meta.fields if f not in BLOB_FIELDS]

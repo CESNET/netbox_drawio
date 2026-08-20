@@ -3,6 +3,7 @@ from netbox.api.viewsets import NetBoxModelViewSet
 
 from netbox_drawio import filtersets, models
 from netbox_drawio.api.serializers import DiagramAssignmentSerializer, DiagramListSerializer, DiagramSerializer
+from netbox_drawio.constants import BLOB_FIELDS
 
 
 class DiagramViewSet(NetBoxModelViewSet):
@@ -24,7 +25,7 @@ class DiagramViewSet(NetBoxModelViewSet):
         if self.action == "list":
             # Pairs with DiagramListSerializer: without the serializer change,
             # deferring would re-fetch both blobs per row (N+1)
-            queryset = queryset.defer("source_xml", "svg_cache")
+            queryset = queryset.defer(*BLOB_FIELDS)
         return queryset
 
 
