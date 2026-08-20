@@ -4,10 +4,24 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from netbox_drawio.constants import FORCED_EMBED_PARAMS, HARD_EXCLUDED_APPS, SVG_DATA_URI_PREFIX
 
 logger = logging.getLogger(__name__)
+
+
+def get_safe_return_url(request):
+    """
+    Return the request's ``return_url`` GET parameter if it points at this host,
+    else None.
+    """
+    return_url = request.GET.get("return_url")
+    if return_url and url_has_allowed_host_and_scheme(
+        return_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return return_url
+    return None
 
 
 def _get_plugin_settings():

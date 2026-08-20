@@ -1,5 +1,6 @@
 import hashlib
 import logging
+from functools import cached_property
 
 from core.models.object_types import ObjectType
 from django.core.exceptions import ObjectDoesNotExist
@@ -8,10 +9,9 @@ from django.urls import reverse
 from netbox.models import NetBoxModel, PrimaryModel
 from utilities.querysets import RestrictedQuerySet
 
-logger = logging.getLogger(__name__)
+from netbox_drawio.constants import BLOB_FIELDS
 
-# Blob fields kept out of change-log snapshots (see Diagram.serialize_object)
-CHANGELOG_EXCLUDED_FIELDS = ("source_xml", "svg_cache")
+logger = logging.getLogger(__name__)
 
 
 class Diagram(PrimaryModel):
@@ -61,14 +61,14 @@ class Diagram(PrimaryModel):
         # Keep the multi-hundred-KB XML/SVG blobs out of ObjectChange pre/post-change
         # snapshots; metadata changes remain fully change-logged. content_hash stays
         # included so content-only saves still produce a change record.
-        return super().serialize_object(exclude=[*(exclude or []), *CHANGELOG_EXCLUDED_FIELDS])
+        return super().serialize_object(exclude=[*(exclude or []), *BLOB_FIELDS])
 
     def save(self, *args, **kwargs):
         # Skip re-hashing only when every blob field is deferred and therefore
         # untouched (assignment removes a field from the deferred set). If any
         # blob is loaded it may have changed, so recompute — even though that
         # fetches back a still-deferred sibling.
-        if not self.get_deferred_fields().issuperset(CHANGELOG_EXCLUDED_FIELDS):
+        if not self.get_deferred_fields().issuperset(BLOB_FIELDS):
             self.content_hash = self._compute_content_hash()
         super().save(*args, **kwargs)
 
@@ -119,15 +119,9 @@ class DiagramAssignment(NetBoxModel):
     def __str__(self):
         return f"{self.diagram} → {self.object_type} #{self.object_id}"
 
-    def get_display(self):
-        """Rich display — only call when parent is prefetched or single-object context."""
-        parent = self.parent
-        if parent:
-            return f"{self.diagram} → {parent}"
-        return self.__str__()
-
-    @property
+    @cached_property
     def parent(self):
+        # Cached: table columns render this several times per row
         if not (self.object_type_id and self.object_id):
             return None
 

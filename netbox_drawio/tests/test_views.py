@@ -87,6 +87,27 @@ class DiagramCreateWithAssignmentTest(ModelViewTestCase):
         assignment = diagram.assignments.get()
         self.assertEqual(assignment.parent, self.device)
 
+    def test_save_and_add_another_without_context(self):
+        self.add_permissions("netbox_drawio.add_diagram")
+        # "Save & Add Another" from the nav menu: no object context in GET
+        response = self.client.post(
+            self._get_url("add"),
+            data={"name": "AddAnother 1", "description": "", "comments": "", "tags": [], "_addanother": ""},
+        )
+        self.assertHttpStatus(response, 302)
+        redirect_url = response["Location"]
+        # Absent GET params must not round-trip as the literal string "None"
+        self.assertNotIn("None", redirect_url)
+        # A plain Save from the re-presented form must not redirect to "/add/None";
+        # with no return_url it lands on the new diagram's detail page
+        response = self.client.post(
+            redirect_url,
+            data={"name": "AddAnother 2", "description": "", "comments": "", "tags": []},
+        )
+        self.assertHttpStatus(response, 302)
+        diagram = Diagram.objects.get(name="AddAnother 2")
+        self.assertEqual(response["Location"], diagram.get_absolute_url())
+
     def test_create_with_out_of_scope_object_type_rejected(self):
         self.add_permissions("netbox_drawio.add_diagram")
         # extras is excluded by default settings; Tag ObjectType must be refused

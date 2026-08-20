@@ -90,6 +90,22 @@ class DiagramAssignmentModelTest(TestCase):
         assignment = assign(self.diagram, self.device)
         self.assertEqual(assignment.parent, self.device)
 
+    def test_parent_cached_on_instance(self):
+        assignment = assign(self.diagram, self.device)
+        assignment = DiagramAssignment.objects.get(pk=assignment.pk)
+        with CaptureQueriesContext(connection) as ctx:
+            first = assignment.parent
+            second = assignment.parent
+        self.assertEqual(first, self.device)
+        self.assertIs(first, second)
+        # Table columns render `parent` several times per row; only the first
+        # access may hit the database.
+        queries_after_first = len(ctx.captured_queries)
+        with CaptureQueriesContext(connection) as ctx2:
+            assignment.parent
+        self.assertEqual(len(ctx2.captured_queries), 0)
+        self.assertGreater(queries_after_first, 0)
+
     def test_parent_none_for_missing_object(self):
         assignment = assign(self.diagram, self.device)
         # Bypass the cleanup receiver by pointing at a nonexistent id
