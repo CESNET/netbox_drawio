@@ -1,7 +1,11 @@
-from django.db import IntegrityError, transaction
+from unittest import mock
+
+from django.db import IntegrityError, connection, transaction
 from django.test import TestCase
+from django.test.utils import CaptureQueriesContext
 from utilities.testing import create_test_device
 
+from netbox_drawio import models as drawio_models
 from netbox_drawio.models import Diagram, DiagramAssignment
 from netbox_drawio.tests.utils import SAMPLE_XML, assign, make_diagram
 
@@ -69,6 +73,31 @@ class DiagramAssignmentModelTest(TestCase):
         self.assertFalse(DiagramAssignment.objects.filter(pk=assignment.pk).exists())
         # The diagram itself survives
         self.assertTrue(Diagram.objects.filter(pk=self.diagram.pk).exists())
+
+    def test_pre_delete_skips_plugin_table_when_absent(self):
+        """
+        During `manage.py migrate`, another app's data migration may delete rows before
+        the assignment table exists. The receiver must not touch the table at all —
+        on PostgreSQL a failed statement poisons the surrounding transaction.
+        """
+        device = create_test_device("drawio-guard-device")
+        table = DiagramAssignment._meta.db_table
+        drawio_models._assignment_table_ready = None
+        try:
+            with mock.patch.object(connection.introspection, "table_names", return_value=[]):
+                with CaptureQueriesContext(connection) as ctx:
+                    device.delete()
+        finally:
+            drawio_models._assignment_table_ready = None
+        self.assertFalse(any(table in query["sql"] for query in ctx.captured_queries))
+
+    def test_post_migrate_resets_table_cache(self):
+        drawio_models._assignment_table_ready = False
+        try:
+            drawio_models.reset_assignment_table_cache(sender=None)
+            self.assertIsNone(drawio_models._assignment_table_ready)
+        finally:
+            drawio_models._assignment_table_ready = None
 
     def test_diagram_delete_cascades_assignments(self):
         diagram = make_diagram("Cascade")
