@@ -63,10 +63,6 @@ ASSIGNMENT_PARENT_COLUMN = """
 {% endif %}
 """
 
-ASSIGNMENT_DIAGRAM_LINK = """
-<a href="{{ record.diagram.get_absolute_url }}">{{ record.diagram }}</a>
-"""
-
 
 class DiagramTable(NetBoxTable):
     preview = tables.TemplateColumn(
@@ -114,11 +110,7 @@ class DiagramTable(NetBoxTable):
 
 
 class DiagramAssignmentTable(NetBoxTable):
-    diagram = tables.TemplateColumn(
-        template_code=ASSIGNMENT_DIAGRAM_LINK,
-        verbose_name="Diagram",
-        orderable=False,
-    )
+    diagram = tables.Column(linkify=True, verbose_name="Diagram")
     object_type = columns.ContentTypeColumn(verbose_name="Object Type")
     parent = tables.TemplateColumn(
         template_code=ASSIGNMENT_PARENT_COLUMN,

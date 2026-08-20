@@ -2,8 +2,6 @@ import base64
 import logging
 from urllib.parse import urlencode
 
-from django.conf import settings
-from django.core.exceptions import ImproperlyConfigured
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from netbox_drawio.constants import FORCED_EMBED_PARAMS, HARD_EXCLUDED_APPS, SVG_DATA_URI_PREFIX
@@ -24,30 +22,17 @@ def get_safe_return_url(request):
     return None
 
 
-def _get_plugin_settings():
-    try:
-        plugins_config = getattr(settings, "PLUGINS_CONFIG", {})
-    except (AttributeError, ImproperlyConfigured):
-        return {}
-
-    if not isinstance(plugins_config, dict):
-        return {}
-
-    plugin_settings = plugins_config.get("netbox_drawio", {})
-    if not isinstance(plugin_settings, dict):
-        return {}
-
-    return plugin_settings
-
-
 def get_setting(key):
-    """Read a plugin setting, falling back to the PluginConfig default."""
+    """
+    Read a plugin setting. NetBox merges default_settings into PLUGINS_CONFIG at
+    startup, but override_settings(PLUGINS_CONFIG=...) in tests does not re-merge,
+    so the default is passed explicitly.
+    """
+    from netbox.plugins import get_plugin_config
+
     from netbox_drawio import NetBoxDrawioConfig
 
-    plugin_settings = _get_plugin_settings()
-    if key in plugin_settings:
-        return plugin_settings[key]
-    return NetBoxDrawioConfig.default_settings.get(key)
+    return get_plugin_config("netbox_drawio", key, NetBoxDrawioConfig.default_settings.get(key))
 
 
 def _as_list(value):

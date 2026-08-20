@@ -131,8 +131,9 @@
                 setStatus("Ready", false);
                 break;
             case "configure":
-                // Only sent when the operator adds configure=1 via drawio_url_params
-                post({ action: "configure", config: cfg.editorConfig || {} });
+                // Only sent when the operator adds configure=1 via drawio_url_params;
+                // answer with an empty config so the editor proceeds instead of hanging.
+                post({ action: "configure", config: {} });
                 break;
             case "save":
                 stash(msg.xml);
