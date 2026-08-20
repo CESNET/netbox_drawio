@@ -25,7 +25,9 @@
         return;
     }
 
-    let stashedXml = null;
+    let stashedXml = null; // latest edit awaiting its SVG export
+    let stashSeq = 0; // increments on every save/autosave; tags payloads
+    let pending = null; // newest {seq, xml, svg} awaiting POST
     let saving = false;
 
     function setStatus(text, isError) {
@@ -45,10 +47,12 @@
         post({ action: "export", format: "xmlsvg", xml: stashedXml, spinKey: "saving" });
     }
 
-    function persist(svgDataUri) {
-        if (saving || stashedXml === null) {
+    function persist() {
+        if (saving || pending === null) {
             return;
         }
+        const payload = pending;
+        pending = null;
         saving = true;
         setStatus("Saving…", false);
         fetch(cfg.saveUrl, {
@@ -58,7 +62,7 @@
                 "X-CSRFToken": cfg.csrfToken,
             },
             credentials: "same-origin",
-            body: JSON.stringify({ xml: stashedXml, svg_data_uri: svgDataUri }),
+            body: JSON.stringify({ xml: payload.xml, svg_data_uri: payload.svg }),
         })
             .then(function (response) {
                 if (!response.ok) {
@@ -74,9 +78,13 @@
                 return response.json();
             })
             .then(function () {
-                stashedXml = null;
                 setStatus("Saved " + new Date().toLocaleTimeString(), false);
-                post({ action: "status", message: "Saved", modified: false });
+                // Only tell draw.io the document is clean if no newer edit
+                // arrived while this request was in flight.
+                if (payload.seq === stashSeq && pending === null) {
+                    stashedXml = null;
+                    post({ action: "status", message: "Saved", modified: false });
+                }
             })
             .catch(function (err) {
                 setStatus("Save failed: " + err.message, true);
@@ -84,6 +92,7 @@
             })
             .finally(function () {
                 saving = false;
+                persist();
             });
     }
 
@@ -109,18 +118,23 @@
                 post({ action: "configure", config: cfg.editorConfig || {} });
                 break;
             case "save":
+                stashSeq += 1;
                 stashedXml = msg.xml;
                 requestExport();
                 break;
             case "autosave":
                 if (cfg.autosave) {
+                    stashSeq += 1;
                     stashedXml = msg.xml;
                     requestExport();
                 }
                 break;
             case "export":
                 if (stashedXml !== null && msg.data) {
-                    persist(msg.data);
+                    // Always queue the newest state; persist() drains it once
+                    // any in-flight request settles.
+                    pending = { seq: stashSeq, xml: stashedXml, svg: msg.data };
+                    persist();
                 }
                 break;
             case "exit":
