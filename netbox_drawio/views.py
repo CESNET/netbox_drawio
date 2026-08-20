@@ -4,11 +4,11 @@ from django.conf import settings
 from django.core.exceptions import RequestDataTooBig
 from django.db.models import Count
 from django.db.models.functions import Length
-from django.http import HttpResponse, HttpResponseNotModified, JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
-from django.utils.http import parse_etags
+from django.utils.cache import get_conditional_response
 from django.views.generic import View
 from netbox.views import generic
 from utilities.views import ConditionalLoginRequiredMixin, register_model_view
@@ -44,20 +44,36 @@ def object_context_addanother_params(request):
     )
 
 
+def get_object_context(request):
+    """
+    Resolve the ?object_type=&object_id= GET params into a validated
+    (ObjectType, object_id) pair, or None when absent or malformed. 404s when
+    the params name a disallowed type or an object the user cannot view.
+    """
+    try:
+        object_type_id = int(request.GET.get("object_type", ""))
+        object_id = int(request.GET.get("object_id", ""))
+    except (TypeError, ValueError):
+        return None
+    if not (object_type_id and object_id):
+        return None
+    object_type = get_object_or_404(get_enabled_object_type_queryset(), pk=object_type_id)
+    model = object_type.model_class()
+    if model is None:
+        return None
+    get_object_or_404(model.objects.restrict(request.user, "view"), pk=object_id)
+    return object_type, object_id
+
+
 # CSP for the raw SVG endpoint: draw.io SVGs need inline styles and data: images/fonts;
 # scripts are blocked even on direct navigation to the URL.
 SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; sandbox"
 
-
-def if_none_match_matches(header, etag):
-    """
-    Weak comparison of an If-None-Match header (possibly multi-value, possibly
-    W/-prefixed entity tags) against a single entity tag, per RFC 9110 §13.1.2.
-    """
-    if not header:
-        return False
-    etags = parse_etags(header)
-    return "*" in etags or etag in (candidate.removeprefix("W/") for candidate in etags)
+# Shared by the list and bulk views: blobs deferred, annotations the table renders
+DIAGRAM_LIST_QUERYSET = models.Diagram.objects.defer(*BLOB_FIELDS).annotate(
+    assignment_count=Count("assignments", distinct=True),
+    svg_size=Length("svg_cache"),
+)
 
 
 @register_model_view(models.Diagram, name="", detail=True)
@@ -89,14 +105,8 @@ class DiagramListView(generic.ObjectListView):
         "bulk_edit": {"change"},
         "bulk_delete": {"delete"},
     }
-    queryset = (
-        models.Diagram.objects.defer(*BLOB_FIELDS)
-        .select_related("owner", "owner__group")
-        .prefetch_related("assignments", "assignments__object_type")
-        .annotate(
-            assignment_count=Count("assignments", distinct=True),
-            svg_size=Length("svg_cache"),
-        )
+    queryset = DIAGRAM_LIST_QUERYSET.select_related("owner", "owner__group").prefetch_related(
+        "assignments", "assignments__object_type"
     )
     table = tables.DiagramTable
     filterset = filtersets.DiagramFilterSet
@@ -111,21 +121,9 @@ class DiagramEditView(generic.ObjectEditView):
     default_return_url = "plugins:netbox_drawio:diagram_list"
 
     def alter_object(self, instance, request, args, kwargs):
-        if not instance.pk:
-            try:
-                object_type_id = int(request.GET.get("object_type", ""))
-                object_id = int(request.GET.get("object_id", ""))
-            except (TypeError, ValueError):
-                return instance
-            if object_type_id and object_id:
-                object_type = get_object_or_404(get_enabled_object_type_queryset(), pk=object_type_id)
-                model = object_type.model_class()
-                if model is None:
-                    return instance
-                get_object_or_404(model.objects.restrict(request.user, "view"), pk=object_id)
-                # Pass validated assignment context to the form's save() via instance attributes
-                instance._pending_object_type_id = object_type.pk
-                instance._pending_object_id = object_id
+        if not instance.pk and (context := get_object_context(request)):
+            # Pass validated assignment context to the form's save() via instance attributes
+            instance._pending_object_type, instance._pending_object_id = context
         return instance
 
     def get_extra_addanother_params(self, request):
@@ -140,10 +138,7 @@ class DiagramDeleteView(generic.ObjectDeleteView):
 
 @register_model_view(models.Diagram, "bulk_edit", path="edit", detail=False)
 class DiagramBulkEditView(generic.BulkEditView):
-    queryset = models.Diagram.objects.defer(*BLOB_FIELDS).annotate(
-        assignment_count=Count("assignments", distinct=True),
-        svg_size=Length("svg_cache"),
-    )
+    queryset = DIAGRAM_LIST_QUERYSET
     filterset = filtersets.DiagramFilterSet
     table = tables.DiagramTable
     form = forms.DiagramBulkEditForm
@@ -151,10 +146,7 @@ class DiagramBulkEditView(generic.BulkEditView):
 
 @register_model_view(models.Diagram, "bulk_delete", path="delete", detail=False)
 class DiagramBulkDeleteView(generic.BulkDeleteView):
-    queryset = models.Diagram.objects.defer(*BLOB_FIELDS).annotate(
-        assignment_count=Count("assignments", distinct=True),
-        svg_size=Length("svg_cache"),
-    )
+    queryset = DIAGRAM_LIST_QUERYSET
     filterset = filtersets.DiagramFilterSet
     table = tables.DiagramTable
     default_return_url = "plugins:netbox_drawio:diagram_list"
@@ -281,8 +273,6 @@ class DiagramSVGView(ConditionalLoginRequiredMixin, View):
             etag = f'"{diagram.last_updated.timestamp()}"'
         else:
             etag = None
-        if etag and if_none_match_matches(request.headers.get("If-None-Match"), etag):
-            return HttpResponseNotModified()
 
         response = HttpResponse(diagram.svg_cache, content_type="image/svg+xml; charset=utf-8")
         response["Content-Security-Policy"] = SVG_CSP
@@ -290,6 +280,7 @@ class DiagramSVGView(ConditionalLoginRequiredMixin, View):
         response["Content-Disposition"] = f'inline; filename="diagram-{diagram.pk}.svg"'
         if etag:
             response["ETag"] = etag
+            return get_conditional_response(request, etag=etag, response=response)
         return response
 
 
@@ -319,24 +310,12 @@ class DiagramLinkView(generic.ObjectEditView):
     default_return_url = "plugins:netbox_drawio:diagram_list"
 
     def alter_object(self, instance, request, args, kwargs):
-        if not instance.pk:
-            try:
-                object_type_id = int(request.GET.get("object_type", ""))
-                object_id = int(request.GET.get("object_id", ""))
-            except (TypeError, ValueError):
-                return instance
-            # Only pre-populate when both are valid integers (forward flow from a
-            # detail page). HTMX re-renders supply only object_type; they are
-            # rejected above, leaving the instance untouched so the form resolves
-            # the selection via get_field_value.
-            if object_type_id and object_id:
-                object_type = get_object_or_404(get_enabled_object_type_queryset(), pk=object_type_id)
-                model = object_type.model_class()
-                if model is None:
-                    return instance
-                get_object_or_404(model.objects.restrict(request.user, "view"), pk=object_id)
-                instance.object_type = object_type
-                instance.object_id = object_id
+        # Only pre-populate on the forward flow from a detail page (both params
+        # valid). HTMX re-renders supply only object_type; get_object_context
+        # rejects them, leaving the instance untouched so the form resolves the
+        # selection via get_field_value.
+        if not instance.pk and (context := get_object_context(request)):
+            instance.object_type, instance.object_id = context
         return instance
 
     def get_extra_addanother_params(self, request):

@@ -39,52 +39,18 @@ class DiagramForm(PrimaryModelForm):
             "tags",
         ]
 
-    def clean(self):
-        cleaned_data = super().clean()
-
-        pending_type_id = getattr(self.instance, "_pending_object_type_id", None)
-        pending_obj_id = getattr(self.instance, "_pending_object_id", None)
-
-        # No assignment context provided (e.g. add from the diagram list) is valid.
-        if pending_type_id is None and pending_obj_id is None:
-            return cleaned_data
-
-        # Enforce complete context when assignment params are present.
-        if not pending_type_id or not pending_obj_id:
-            raise forms.ValidationError(_("Invalid assignment target context."))
-
-        try:
-            pending_type_id = int(pending_type_id)
-            pending_obj_id = int(pending_obj_id)
-        except (TypeError, ValueError):
-            raise forms.ValidationError(_("Invalid assignment target identifiers."))
-
-        object_type = get_enabled_object_type_queryset().filter(pk=pending_type_id).first()
-        if object_type is None:
-            raise forms.ValidationError(_("Diagrams are not permitted for this object type."))
-
-        model = object_type.model_class()
-        if model is None:
-            raise forms.ValidationError(_("Invalid assignment target model."))
-
-        if not model.objects.filter(pk=pending_obj_id).exists():
-            raise forms.ValidationError(_("The target object does not exist."))
-
-        self._validated_pending_object_type = object_type
-        self._validated_pending_object_id = pending_obj_id
-        return cleaned_data
-
     def save(self, commit=True):
         """
         After saving the diagram, create an assignment if pending context is set.
-        The view's alter_object() sets _pending_object_type_id and _pending_object_id
-        on the instance to pass context into this save() method.
+        The view's alter_object() sets _pending_object_type and _pending_object_id
+        on the instance — already validated against the enabled-type allowlist and
+        the user's view permission — to pass context into this save() method.
         """
         obj = super().save(commit=commit)
 
         if commit:
-            object_type = getattr(self, "_validated_pending_object_type", None)
-            object_id = getattr(self, "_validated_pending_object_id", None)
+            object_type = getattr(self.instance, "_pending_object_type", None)
+            object_id = getattr(self.instance, "_pending_object_id", None)
             if object_type is not None and object_id is not None:
                 DiagramAssignment.objects.get_or_create(
                     diagram=obj,

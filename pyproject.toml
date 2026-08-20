@@ -23,9 +23,8 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
 ]
-dependencies = [
-    "django>=5.0,<7.0",
-]
+# No runtime dependencies: the plugin only runs inside NetBox, which pins Django.
+dependencies = []
 
 [project.entry-points."netbox.plugins"]
 netbox_drawio = "netbox_drawio:config"
@@ -38,7 +37,7 @@ where = ["."]
 include = ["netbox_drawio*"]
 
 [tool.setuptools.package-data]
-netbox_drawio = ["**/*", "templates/**", "static/**"]
+netbox_drawio = ["**/*"]
 
 [tool.setuptools.exclude-package-data]
 netbox_drawio = ["**/__pycache__/*", "**/*.py[cod]"]
