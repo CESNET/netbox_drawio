@@ -23,7 +23,7 @@ here can be linked to every Device and Site it depicts.
 
 | NetBox | Plugin |
 |--------|--------|
-| 4.5.x – 4.6.x | ≥ 0.1.0 |
+| 4.6.4 – 4.6.x | ≥ 0.1.0 |
 
 Python ≥ 3.12.
 

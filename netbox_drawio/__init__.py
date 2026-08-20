@@ -54,7 +54,7 @@ class NetBoxDrawioConfig(PluginConfig):
         "max_size": 10 * 1024 * 1024,
     }
     required_settings = []
-    min_version = "4.5.0"
+    min_version = "4.6.4"
     max_version = "4.6.99"
 
     def ready(self):

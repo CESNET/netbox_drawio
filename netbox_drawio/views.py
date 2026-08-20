@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.cache import get_conditional_response
 from django.views.generic import View
+from netbox import object_actions
 from netbox.views import generic
 from utilities.views import ConditionalLoginRequiredMixin, register_model_view
 
@@ -99,12 +100,12 @@ class DiagramView(generic.ObjectView):
 
 @register_model_view(models.Diagram, name="list", path="", detail=False)
 class DiagramListView(generic.ObjectListView):
-    actions = {
-        "add": {"add"},
-        "export": set(),
-        "bulk_edit": {"change"},
-        "bulk_delete": {"delete"},
-    }
+    actions = (
+        object_actions.AddObject,
+        object_actions.BulkExport,
+        object_actions.BulkEdit,
+        object_actions.BulkDelete,
+    )
     queryset = DIAGRAM_LIST_QUERYSET.select_related("owner", "owner__group").prefetch_related(
         "assignments", "assignments__object_type"
     )
@@ -339,11 +340,11 @@ class DiagramAssignmentListView(generic.ObjectListView):
     table = tables.DiagramAssignmentTable
     filterset = filtersets.DiagramAssignmentFilterSet
     filterset_form = forms.DiagramAssignmentFilterForm
-    actions = {
-        "export": set(),
-        "bulk_edit": {"change"},
-        "bulk_delete": {"delete"},
-    }
+    actions = (
+        object_actions.BulkExport,
+        object_actions.BulkEdit,
+        object_actions.BulkDelete,
+    )
 
 
 @register_model_view(models.DiagramAssignment, name="edit", detail=True)

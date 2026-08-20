@@ -1,4 +1,8 @@
+import warnings
+
 from core.models.object_types import ObjectType
+from django.test import override_settings
+from django.urls import reverse
 from utilities.testing import ViewTestCases, create_test_device, create_tags
 from utilities.testing.views import ModelViewTestCase
 
@@ -60,6 +64,23 @@ class DiagramAssignmentViewTestCase(
         assign(diagram, device1)
         assign(diagram, device2)
         assign(diagram, device3)
+
+
+class LegacyActionsWarningTest(ModelViewTestCase):
+    """Both list views must use ObjectAction tuples, not the deprecated dict (removed in NetBox 4.7)."""
+
+    model = Diagram
+
+    @override_settings(EXEMPT_VIEW_PERMISSIONS=["*"])
+    def test_list_views_emit_no_legacy_actions_warning(self):
+        make_diagram("Warning Test Diagram")
+        for url_name in ("diagram_list", "diagramassignment_list"):
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                response = self.client.get(reverse(f"plugins:netbox_drawio:{url_name}"))
+            self.assertHttpStatus(response, 200)
+            legacy = [w for w in caught if "actions is defined as a dictionary" in str(w.message)]
+            self.assertEqual(legacy, [], f"{url_name} still uses the deprecated actions dict")
 
 
 class DiagramCreateWithAssignmentTest(ModelViewTestCase):
