@@ -25,7 +25,9 @@
         return;
     }
 
-    let stashedXml = null;
+    let stashedXml = null; // latest edit awaiting its SVG export
+    let stashSeq = 0; // increments on every save/autosave; tags payloads
+    let pending = null; // newest {seq, xml, svg} awaiting POST
     let saving = false;
 
     function setStatus(text, isError) {
@@ -40,15 +42,25 @@
         frame.contentWindow.postMessage(JSON.stringify(message), cfg.embedOrigin);
     }
 
-    function requestExport() {
-        // xmlsvg embeds the diagram XML inside the SVG, keeping the preview round-trippable
-        post({ action: "export", format: "xmlsvg", xml: stashedXml, spinKey: "saving" });
+    function stash(xml) {
+        stashSeq += 1;
+        stashedXml = xml;
+        requestExport();
     }
 
-    function persist(svgDataUri) {
-        if (saving || stashedXml === null) {
+    function requestExport() {
+        // xmlsvg embeds the diagram XML inside the SVG, keeping the preview round-trippable.
+        // draw.io echoes this request back in the export response's `message` field, so the
+        // extra seq/xml let us pair each SVG with the exact edit it renders.
+        post({ action: "export", format: "xmlsvg", xml: stashedXml, spinKey: "saving", seq: stashSeq });
+    }
+
+    function persist() {
+        if (saving || pending === null) {
             return;
         }
+        const payload = pending;
+        pending = null;
         saving = true;
         setStatus("Saving…", false);
         fetch(cfg.saveUrl, {
@@ -58,7 +70,7 @@
                 "X-CSRFToken": cfg.csrfToken,
             },
             credentials: "same-origin",
-            body: JSON.stringify({ xml: stashedXml, svg_data_uri: svgDataUri }),
+            body: JSON.stringify({ xml: payload.xml, svg_data_uri: payload.svg }),
         })
             .then(function (response) {
                 if (!response.ok) {
@@ -74,9 +86,13 @@
                 return response.json();
             })
             .then(function () {
-                stashedXml = null;
                 setStatus("Saved " + new Date().toLocaleTimeString(), false);
-                post({ action: "status", message: "Saved", modified: false });
+                // Only tell draw.io the document is clean if no newer edit
+                // arrived while this request was in flight.
+                if (payload.seq === stashSeq && pending === null) {
+                    stashedXml = null;
+                    post({ action: "status", message: "Saved", modified: false });
+                }
             })
             .catch(function (err) {
                 setStatus("Save failed: " + err.message, true);
@@ -84,6 +100,7 @@
             })
             .finally(function () {
                 saving = false;
+                persist();
             });
     }
 
@@ -109,20 +126,31 @@
                 post({ action: "configure", config: cfg.editorConfig || {} });
                 break;
             case "save":
-                stashedXml = msg.xml;
-                requestExport();
+                stash(msg.xml);
                 break;
             case "autosave":
                 if (cfg.autosave) {
-                    stashedXml = msg.xml;
-                    requestExport();
+                    stash(msg.xml);
                 }
                 break;
-            case "export":
-                if (stashedXml !== null && msg.data) {
-                    persist(msg.data);
+            case "export": {
+                if (stashedXml === null || !msg.data) {
+                    break;
                 }
+                // The response echoes our export request; use its seq/xml so the SVG is
+                // paired with the edit it actually renders. Fall back to the newest stash
+                // if the echo is missing.
+                const req = msg.message || {};
+                const seq = typeof req.seq === "number" ? req.seq : stashSeq;
+                const xml = typeof req.xml === "string" ? req.xml : stashedXml;
+                if (pending !== null && pending.seq > seq) {
+                    break; // a newer payload is already queued
+                }
+                // Queue the payload; persist() drains it once any in-flight request settles.
+                pending = { seq: seq, xml: xml, svg: msg.data };
+                persist();
                 break;
+            }
             case "exit":
                 window.location.href = cfg.returnUrl;
                 break;
