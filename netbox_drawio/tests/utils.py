@@ -26,6 +26,11 @@ def make_diagram(name, **kwargs):
     return Diagram.objects.create(name=name, **kwargs)
 
 
+def mutate_svg(diagram):
+    """Return a changed variant of the diagram's cached SVG."""
+    return diagram.svg_cache.replace("lightblue", "salmon")
+
+
 def assign(diagram, obj):
     return DiagramAssignment.objects.create(
         diagram=diagram,

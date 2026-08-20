@@ -8,7 +8,7 @@ from django.http import HttpResponse, HttpResponseNotModified, JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
-from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.http import parse_etags, url_has_allowed_host_and_scheme
 from django.views.generic import View
 from netbox.views import generic
 from utilities.views import ConditionalLoginRequiredMixin, register_model_view
@@ -35,9 +35,8 @@ def if_none_match_matches(header, etag):
     """
     if not header:
         return False
-    if header.strip() == "*":
-        return True
-    return any(candidate.strip().removeprefix("W/") == etag for candidate in header.split(","))
+    etags = parse_etags(header)
+    return "*" in etags or etag in (candidate.removeprefix("W/") for candidate in etags)
 
 
 @register_model_view(models.Diagram, name="", detail=True)

@@ -5,7 +5,7 @@ from users.models import ObjectPermission
 from utilities.testing import APITestCase, APIViewTestCases, create_test_device
 
 from netbox_drawio.models import Diagram, DiagramAssignment
-from netbox_drawio.tests.utils import SAMPLE_XML, assign, make_diagram
+from netbox_drawio.tests.utils import SAMPLE_XML, assign, make_diagram, mutate_svg
 
 
 class AppTest(APITestCase):
@@ -48,7 +48,7 @@ class DiagramAPITest(
         self.add_permissions("netbox_drawio.change_diagram")
         response = self.client.patch(
             self._get_detail_url(diagram),
-            {"svg_cache": diagram.svg_cache.replace("lightblue", "salmon")},
+            {"svg_cache": mutate_svg(diagram)},
             format="json",
             **self.header,
         )

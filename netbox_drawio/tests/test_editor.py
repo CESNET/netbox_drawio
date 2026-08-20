@@ -4,7 +4,7 @@ from django.test import override_settings
 from utilities.testing.views import ModelViewTestCase
 
 from netbox_drawio.models import Diagram
-from netbox_drawio.tests.utils import SAMPLE_SVG, SAMPLE_XML, make_diagram, sample_svg_data_uri
+from netbox_drawio.tests.utils import SAMPLE_SVG, SAMPLE_XML, make_diagram, mutate_svg, sample_svg_data_uri
 
 
 class DiagramEditorViewTest(ModelViewTestCase):
@@ -183,7 +183,7 @@ class DiagramSVGSourceViewTest(ModelViewTestCase):
         etag = first["ETag"]
 
         diagram = Diagram.objects.get(pk=self.diagram.pk)
-        diagram.svg_cache = diagram.svg_cache.replace("lightblue", "salmon")
+        diagram.svg_cache = mutate_svg(diagram)
         diagram.save()
 
         second = self.client.get(self._get_url("svg", self.diagram), HTTP_IF_NONE_MATCH=etag)
@@ -203,6 +203,11 @@ class DiagramSVGSourceViewTest(ModelViewTestCase):
             self._get_url("svg", self.diagram),
             HTTP_IF_NONE_MATCH=f'"stale-tag", {etag}, W/"other-tag"',
         )
+        self.assertHttpStatus(response, 304)
+
+    def test_svg_etag_star_if_none_match(self):
+        self.add_permissions("netbox_drawio.view_diagram")
+        response = self.client.get(self._get_url("svg", self.diagram), HTTP_IF_NONE_MATCH="*")
         self.assertHttpStatus(response, 304)
 
     def test_svg_etag_non_matching_multivalue_returns_200(self):

@@ -7,7 +7,7 @@ from utilities.testing import create_test_device
 
 from netbox_drawio import signals as drawio_signals
 from netbox_drawio.models import Diagram, DiagramAssignment
-from netbox_drawio.tests.utils import SAMPLE_XML, assign, make_diagram
+from netbox_drawio.tests.utils import SAMPLE_XML, assign, make_diagram, mutate_svg
 
 
 class DiagramModelTest(TestCase):
@@ -34,7 +34,7 @@ class DiagramModelTest(TestCase):
         diagram = make_diagram("SvgHash")
         original_hash = diagram.content_hash
 
-        diagram.svg_cache = diagram.svg_cache.replace("lightblue", "salmon")
+        diagram.svg_cache = mutate_svg(diagram)
         diagram.save()
         self.assertNotEqual(diagram.content_hash, original_hash)
 
@@ -53,6 +53,17 @@ class DiagramModelTest(TestCase):
             deferred.save()
         self.assertFalse(any("source_xml" in q["sql"] or "svg_cache" in q["sql"] for q in ctx.captured_queries))
         self.assertEqual(Diagram.objects.get(pk=diagram.pk).content_hash, original_hash)
+
+    def test_save_partially_deferred_instance_recomputes_hash(self):
+        # Only one blob deferred: the loaded one may have changed, so the hash
+        # must be recomputed even at the cost of fetching back the sibling.
+        diagram = make_diagram("PartialDefer")
+        original_hash = diagram.content_hash
+
+        partial = Diagram.objects.defer("svg_cache").get(pk=diagram.pk)
+        partial.source_xml = SAMPLE_XML.replace("Page-1", "Page-9")
+        partial.save()
+        self.assertNotEqual(Diagram.objects.get(pk=diagram.pk).content_hash, original_hash)
 
     def test_serialize_object_excludes_blobs(self):
         diagram = make_diagram("Serialized")

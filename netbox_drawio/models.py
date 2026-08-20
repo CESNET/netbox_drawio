@@ -64,10 +64,11 @@ class Diagram(PrimaryModel):
         return super().serialize_object(exclude=[*(exclude or []), *CHANGELOG_EXCLUDED_FIELDS])
 
     def save(self, *args, **kwargs):
-        # Deferred blob fields are untouched (assignment removes a field from the
-        # deferred set), so keep the stored hash rather than fetching them back.
-        deferred = self.get_deferred_fields()
-        if not deferred.intersection(CHANGELOG_EXCLUDED_FIELDS):
+        # Skip re-hashing only when every blob field is deferred and therefore
+        # untouched (assignment removes a field from the deferred set). If any
+        # blob is loaded it may have changed, so recompute — even though that
+        # fetches back a still-deferred sibling.
+        if not self.get_deferred_fields().issuperset(CHANGELOG_EXCLUDED_FIELDS):
             self.content_hash = self._compute_content_hash()
         super().save(*args, **kwargs)
 
