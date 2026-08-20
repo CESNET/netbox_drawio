@@ -2,7 +2,7 @@ import logging
 
 from django.db.utils import OperationalError
 
-from netbox_drawio.utils import get_setting, validate_object_type
+from netbox_drawio.utils import get_setting, get_tab_unsupported_reason, validate_object_type
 
 logger = logging.getLogger(__name__)
 
@@ -20,14 +20,19 @@ def register_diagrams_tab_view(model) -> str:
     view_name = "diagrams"
 
     def assigned_diagram_count(obj):
-        request = current_request.get()
-        queryset = Diagram.objects.filter(
-            assignments__object_type=ObjectType.objects.get_for_model(obj),
-            assignments__object_id=obj.pk,
-        )
-        if request:
-            queryset = queryset.restrict(request.user, "view")
-        return queryset.distinct().count()
+        # Runs on every detail-page render (model_view_tabs) — must never break the page
+        try:
+            request = current_request.get()
+            queryset = Diagram.objects.filter(
+                assignments__object_type=ObjectType.objects.get_for_model(obj),
+                assignments__object_id=obj.pk,
+            )
+            if request:
+                queryset = queryset.restrict(request.user, "view")
+            return queryset.distinct().count()
+        except Exception as e:
+            logger.debug(f"Diagrams tab badge failed for {obj!r}: {e}")
+            return 0
 
     class DiagramsTabView(ConditionalLoginRequiredMixin, View):
         """Per-object Diagrams tab rendering SVG preview cards (Images-style)."""
@@ -94,6 +99,11 @@ def get_template_extensions():
                 continue
 
             if not validate_object_type(model):
+                continue
+
+            unsupported = get_tab_unsupported_reason(model)
+            if unsupported:
+                logger.debug(f"Skipping Diagrams tab for {model_id}: {unsupported}")
                 continue
 
             register_diagrams_tab_view(model)

@@ -77,6 +77,30 @@ def validate_object_type(model):
     return app_label in scope_filter or label_lower in scope_filter
 
 
+def get_tab_unsupported_reason(model):
+    """
+    Why the Diagrams tab cannot be registered for this model, or None if it can.
+
+    Scoping is a deny-list, so arbitrary third-party models land in scope by
+    default — but the tab view calls model.objects.restrict() and the badge
+    filters assignments__object_id (an integer column). A plain Django manager
+    or a non-integer primary key would 500 the tab, and the badge runs on every
+    detail-page render.
+    """
+    from django.db import models as django_models
+
+    if not hasattr(getattr(model, "objects", None), "restrict"):
+        return "no `objects` manager with restrict()"
+
+    pk_field = model._meta.pk
+    while isinstance(pk_field, django_models.ForeignKey):  # multi-table inheritance parent links
+        pk_field = pk_field.target_field
+    if not isinstance(pk_field, django_models.IntegerField):
+        return f"primary key is not integer-backed ({type(pk_field).__name__})"
+
+    return None
+
+
 def get_enabled_object_type_queryset():
     """
     ObjectType queryset limited to models in scope, for the link form's picker.
