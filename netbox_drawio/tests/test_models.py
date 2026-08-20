@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
 from utilities.testing import create_test_device
 
-from netbox_drawio import models as drawio_models
+from netbox_drawio import signals as drawio_signals
 from netbox_drawio.models import Diagram, DiagramAssignment
 from netbox_drawio.tests.utils import SAMPLE_XML, assign, make_diagram
 
@@ -82,22 +82,22 @@ class DiagramAssignmentModelTest(TestCase):
         """
         device = create_test_device("drawio-guard-device")
         table = DiagramAssignment._meta.db_table
-        drawio_models._assignment_table_ready = None
+        drawio_signals._assignment_table_ready = None
         try:
             with mock.patch.object(connection.introspection, "table_names", return_value=[]):
                 with CaptureQueriesContext(connection) as ctx:
                     device.delete()
         finally:
-            drawio_models._assignment_table_ready = None
+            drawio_signals._assignment_table_ready = None
         self.assertFalse(any(table in query["sql"] for query in ctx.captured_queries))
 
     def test_post_migrate_resets_table_cache(self):
-        drawio_models._assignment_table_ready = False
+        drawio_signals._assignment_table_ready = False
         try:
-            drawio_models.reset_assignment_table_cache(sender=None)
-            self.assertIsNone(drawio_models._assignment_table_ready)
+            drawio_signals.reset_assignment_table_cache(sender=None)
+            self.assertIsNone(drawio_signals._assignment_table_ready)
         finally:
-            drawio_models._assignment_table_ready = None
+            drawio_signals._assignment_table_ready = None
 
     def test_diagram_delete_cascades_assignments(self):
         diagram = make_diagram("Cascade")
