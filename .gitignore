@@ -19,3 +19,7 @@ dist/
 .ripgreprc
 .zprofile
 .zshrc
+
+# local agent workspace (per user preference)
+CLAUDE.md
+.scratch/
