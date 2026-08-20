@@ -28,7 +28,16 @@ class DiagramFilterSetTest(TestCase):
         self.assertEqual(self.filter({"q": "north"}).count(), 1)
 
     def test_name(self):
-        self.assertEqual(self.filter({"name": "alpha"}).count(), 1)
+        # Exact-match semantics, consistent with core models
+        self.assertEqual(self.filter({"name": ["Alpha topology"]}).count(), 1)
+        self.assertEqual(self.filter({"name": ["alpha"]}).count(), 0)
+
+    def test_name_ic(self):
+        self.assertEqual(self.filter({"name__ic": ["alpha"]}).count(), 1)
+
+    def test_created_gte(self):
+        self.assertEqual(self.filter({"created__gte": ["2000-01-01T00:00:00"]}).count(), 3)
+        self.assertEqual(self.filter({"created__gte": ["2999-01-01T00:00:00"]}).count(), 0)
 
     def test_object_type_id(self):
         object_type_id = self.a1.object_type_id
@@ -61,10 +70,11 @@ class DiagramAssignmentFilterSetTest(TestCase):
         return DiagramAssignmentFilterSet(params, self.queryset).qs
 
     def test_diagram_id(self):
-        self.assertEqual(self.filter({"diagram_id": self.d1.pk}).count(), 2)
+        self.assertEqual(self.filter({"diagram_id": [self.d1.pk]}).count(), 2)
+        self.assertEqual(self.filter({"diagram_id": [self.d1.pk, self.d2.pk]}).count(), 3)
 
     def test_object_type_id(self):
-        self.assertEqual(self.filter({"object_type_id": self.a1.object_type_id}).count(), 3)
+        self.assertEqual(self.filter({"object_type_id": [self.a1.object_type_id]}).count(), 3)
 
     def test_object_id(self):
         self.assertEqual(self.filter({"object_id": self.device2.pk}).count(), 2)

@@ -131,6 +131,11 @@ class DiagramAssignmentAPITest(
         obj_perm.users.add(self.user)
         obj_perm.object_types.add(ObjectType.objects.get_for_model(model))
 
+    def test_invalid_diagram_id_filter_returns_400(self):
+        self.add_permissions("netbox_drawio.view_diagramassignment")
+        response = self.client.get(self._get_list_url() + "?diagram_id=999999", **self.header)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_cannot_assign_non_viewable_diagram(self):
         self.remove_permissions("netbox_drawio.view_diagram")
         self.add_permissions("netbox_drawio.add_diagramassignment")

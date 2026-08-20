@@ -13,12 +13,14 @@ from netbox.forms import (
 from utilities.forms.fields import (
     CommentField,
     ContentTypeChoiceField,
+    ContentTypeMultipleChoiceField,
     DynamicModelChoiceField,
+    DynamicModelMultipleChoiceField,
     TagFilterField,
 )
 from utilities.forms.utils import get_field_value
 from utilities.forms.widgets import HTMXSelect
-from utilities.forms.widgets.apiselect import APISelect
+from utilities.forms.widgets.apiselect import APISelect, APISelectMultiple
 from utilities.views import get_action_url
 
 from netbox_drawio.models import Diagram, DiagramAssignment
@@ -196,22 +198,18 @@ class DiagramFilterForm(PrimaryModelFilterSetForm):
 
 class DiagramAssignmentFilterForm(NetBoxModelFilterSetForm):
     model = DiagramAssignment
-    q = forms.CharField(required=False, label=_("Search"))
-    diagram_id = DynamicModelChoiceField(
+    diagram_id = DynamicModelMultipleChoiceField(
         queryset=Diagram.objects.all(),
         required=False,
         label=_("Diagram"),
-        widget=APISelect(
+        widget=APISelectMultiple(
             api_url="/api/plugins/drawio/diagrams/",
         ),
     )
-    object_type_id = DynamicModelChoiceField(
+    object_type_id = ContentTypeMultipleChoiceField(
         queryset=ObjectType.objects.all(),
         required=False,
         label=_("Object Type"),
-        widget=APISelect(
-            api_url="/api/core/object-types/",
-        ),
     )
     tag = TagFilterField(model)
 

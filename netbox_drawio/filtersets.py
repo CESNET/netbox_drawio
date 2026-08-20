@@ -1,6 +1,6 @@
 import django_filters
+from core.models.object_types import ObjectType
 from django.db.models import Q
-from extras.filters import TagFilter
 from netbox.filtersets import NetBoxModelFilterSet
 from users.filterset_mixins import OwnerFilterMixin
 from utilities.filtersets import register_filterset
@@ -10,12 +10,6 @@ from netbox_drawio.models import Diagram, DiagramAssignment
 
 @register_filterset
 class DiagramFilterSet(OwnerFilterMixin, NetBoxModelFilterSet):
-    q = django_filters.CharFilter(method="search", label="Search")
-    created = django_filters.DateTimeFilter()
-    name = django_filters.CharFilter(lookup_expr="icontains")
-    description = django_filters.CharFilter(lookup_expr="icontains")
-    tag = TagFilter()
-
     # Filters routed through the assignment relation
     object_type_id = django_filters.NumberFilter(
         method="filter_object_type_id",
@@ -55,14 +49,12 @@ class DiagramFilterSet(OwnerFilterMixin, NetBoxModelFilterSet):
 
 @register_filterset
 class DiagramAssignmentFilterSet(NetBoxModelFilterSet):
-    q = django_filters.CharFilter(method="search", label="Search")
-    tag = TagFilter()
-    diagram_id = django_filters.NumberFilter(
-        field_name="diagram_id",
+    diagram_id = django_filters.ModelMultipleChoiceFilter(
+        queryset=Diagram.objects.all(),
         label="Diagram (ID)",
     )
-    object_type_id = django_filters.NumberFilter(
-        field_name="object_type_id",
+    object_type_id = django_filters.ModelMultipleChoiceFilter(
+        queryset=ObjectType.objects.all(),
         label="Object Type (ID)",
     )
     object_id = django_filters.NumberFilter(
