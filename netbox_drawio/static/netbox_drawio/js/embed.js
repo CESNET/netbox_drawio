@@ -42,9 +42,17 @@
         frame.contentWindow.postMessage(JSON.stringify(message), cfg.embedOrigin);
     }
 
+    function stash(xml) {
+        stashSeq += 1;
+        stashedXml = xml;
+        requestExport();
+    }
+
     function requestExport() {
-        // xmlsvg embeds the diagram XML inside the SVG, keeping the preview round-trippable
-        post({ action: "export", format: "xmlsvg", xml: stashedXml, spinKey: "saving" });
+        // xmlsvg embeds the diagram XML inside the SVG, keeping the preview round-trippable.
+        // draw.io echoes this request back in the export response's `message` field, so the
+        // extra seq/xml let us pair each SVG with the exact edit it renders.
+        post({ action: "export", format: "xmlsvg", xml: stashedXml, spinKey: "saving", seq: stashSeq });
     }
 
     function persist() {
@@ -118,25 +126,31 @@
                 post({ action: "configure", config: cfg.editorConfig || {} });
                 break;
             case "save":
-                stashSeq += 1;
-                stashedXml = msg.xml;
-                requestExport();
+                stash(msg.xml);
                 break;
             case "autosave":
                 if (cfg.autosave) {
-                    stashSeq += 1;
-                    stashedXml = msg.xml;
-                    requestExport();
+                    stash(msg.xml);
                 }
                 break;
-            case "export":
-                if (stashedXml !== null && msg.data) {
-                    // Always queue the newest state; persist() drains it once
-                    // any in-flight request settles.
-                    pending = { seq: stashSeq, xml: stashedXml, svg: msg.data };
-                    persist();
+            case "export": {
+                if (stashedXml === null || !msg.data) {
+                    break;
                 }
+                // The response echoes our export request; use its seq/xml so the SVG is
+                // paired with the edit it actually renders. Fall back to the newest stash
+                // if the echo is missing.
+                const req = msg.message || {};
+                const seq = typeof req.seq === "number" ? req.seq : stashSeq;
+                const xml = typeof req.xml === "string" ? req.xml : stashedXml;
+                if (pending !== null && pending.seq > seq) {
+                    break; // a newer payload is already queued
+                }
+                // Queue the payload; persist() drains it once any in-flight request settles.
+                pending = { seq: seq, xml: xml, svg: msg.data };
+                persist();
                 break;
+            }
             case "exit":
                 window.location.href = cfg.returnUrl;
                 break;
