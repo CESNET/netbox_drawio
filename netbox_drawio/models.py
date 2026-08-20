@@ -1,5 +1,6 @@
 import hashlib
 import logging
+from functools import cached_property
 
 from core.models.object_types import ObjectType
 from django.core.exceptions import ObjectDoesNotExist
@@ -119,15 +120,9 @@ class DiagramAssignment(NetBoxModel):
     def __str__(self):
         return f"{self.diagram} → {self.object_type} #{self.object_id}"
 
-    def get_display(self):
-        """Rich display — only call when parent is prefetched or single-object context."""
-        parent = self.parent
-        if parent:
-            return f"{self.diagram} → {parent}"
-        return self.__str__()
-
-    @property
+    @cached_property
     def parent(self):
+        # Cached: table columns render this several times per row
         if not (self.object_type_id and self.object_id):
             return None
 

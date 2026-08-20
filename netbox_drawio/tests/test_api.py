@@ -62,6 +62,22 @@ class DiagramAPITest(
         self.assertEqual(oc.postchange_data.get("content_hash"), diagram.content_hash)
         self.assertNotIn("svg_cache", oc.postchange_data)
 
+    def test_list_omits_blob_fields(self):
+        self.add_permissions("netbox_drawio.view_diagram")
+        response = self.client.get(self._get_list_url(), **self.header)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        for row in response.data["results"]:
+            self.assertNotIn("source_xml", row)
+            self.assertNotIn("svg_cache", row)
+
+    def test_detail_includes_blob_fields(self):
+        self.add_permissions("netbox_drawio.view_diagram")
+        diagram = Diagram.objects.get(name="Existing Diagram 1")
+        response = self.client.get(self._get_detail_url(diagram), **self.header)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["source_xml"], diagram.source_xml)
+        self.assertEqual(response.data["svg_cache"], diagram.svg_cache)
+
     @override_settings(PLUGINS_CONFIG={"netbox_drawio": {"max_size": 50}})
     def test_oversize_source_xml_rejected(self):
         self.add_permissions("netbox_drawio.add_diagram")

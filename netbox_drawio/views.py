@@ -8,7 +8,7 @@ from django.http import HttpResponse, HttpResponseNotModified, JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
-from django.utils.http import parse_etags, url_has_allowed_host_and_scheme
+from django.utils.http import parse_etags
 from django.views.generic import View
 from netbox.views import generic
 from utilities.views import ConditionalLoginRequiredMixin, register_model_view
@@ -20,8 +20,18 @@ from netbox_drawio.utils import (
     decode_svg_data_uri,
     get_embed_origin,
     get_enabled_object_type_queryset,
+    get_safe_return_url,
     get_setting,
 )
+
+
+def drop_none_values(params):
+    """
+    Addanother params are urlencoded into the redirect querystring, which would
+    stringify None into the literal "None"; omit absent values instead.
+    """
+    return {key: value for key, value in params.items() if value is not None}
+
 
 # CSP for the raw SVG endpoint: draw.io SVGs need inline styles and data: images/fonts;
 # scripts are blocked even on direct navigation to the URL.
@@ -108,16 +118,13 @@ class DiagramEditView(generic.ObjectEditView):
         return instance
 
     def get_extra_addanother_params(self, request):
-        return_url = request.GET.get("return_url")
-        if return_url and not url_has_allowed_host_and_scheme(
-            return_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
-        ):
-            return_url = None
-        return {
-            "object_type": request.GET.get("object_type"),
-            "object_id": request.GET.get("object_id"),
-            "return_url": return_url,
-        }
+        return drop_none_values(
+            {
+                "object_type": request.GET.get("object_type"),
+                "object_id": request.GET.get("object_id"),
+                "return_url": get_safe_return_url(request),
+            }
+        )
 
 
 @register_model_view(models.Diagram, name="delete", detail=True)
@@ -160,13 +167,7 @@ class DiagramEditorView(generic.ObjectView):
         return "netbox_drawio.change_diagram"
 
     def get_extra_context(self, request, instance):
-        return_url = request.GET.get("return_url")
-        if return_url and not url_has_allowed_host_and_scheme(
-            return_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
-        ):
-            return_url = None
-        if not return_url:
-            return_url = instance.get_absolute_url()
+        return_url = get_safe_return_url(request) or instance.get_absolute_url()
 
         embed_url = build_embed_url()
         return {
@@ -334,22 +335,20 @@ class DiagramLinkView(generic.ObjectEditView):
         return instance
 
     def get_extra_addanother_params(self, request):
-        return_url = request.GET.get("return_url")
-        if return_url and not url_has_allowed_host_and_scheme(
-            return_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
-        ):
-            return_url = None
+        return_url = get_safe_return_url(request)
         if request.GET.get("diagram"):
             # Diagram-forward flow: keep diagram pre-selected so the user
             # only needs to pick a new target object for the next assignment.
-            return {"diagram": request.GET["diagram"], "return_url": return_url}
+            return drop_none_values({"diagram": request.GET["diagram"], "return_url": return_url})
         # Object-forward flow: keep object context so the user keeps linking
         # diagrams to the same object.
-        return {
-            "object_type": request.GET.get("object_type"),
-            "object_id": request.GET.get("object_id"),
-            "return_url": return_url,
-        }
+        return drop_none_values(
+            {
+                "object_type": request.GET.get("object_type"),
+                "object_id": request.GET.get("object_id"),
+                "return_url": return_url,
+            }
+        )
 
 
 @register_model_view(models.DiagramAssignment, name="", detail=True)

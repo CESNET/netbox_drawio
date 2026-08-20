@@ -87,7 +87,10 @@ PLUGINS_CONFIG = {
 
 ## REST API
 
-- `/api/plugins/drawio/diagrams/` — CRUD incl. `source_xml` / `svg_cache`
+- `/api/plugins/drawio/diagrams/` — CRUD incl. `source_xml` / `svg_cache`.
+  The **list** response intentionally omits both blob fields (they can reach
+  `max_size` per row); retrieve a diagram by id to get them. `?brief=true`
+  is unaffected.
 - `/api/plugins/drawio/diagram-assignments/` — `object_type` as `"app.model"`, e.g.
   `{"diagram": 1, "object_type": "dcim.device", "object_id": 42}`
 

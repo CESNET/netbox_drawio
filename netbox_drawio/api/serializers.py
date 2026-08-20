@@ -129,3 +129,16 @@ class DiagramSerializer(PrimaryModelSerializer):
 
     def validate_svg_cache(self, value):
         return self._validate_blob_size(value, "SVG cache")
+
+
+class DiagramListSerializer(DiagramSerializer):
+    """
+    List-action serializer: omits the XML/SVG blobs, which can reach max_size
+    (10 MB by default) per row. Retrieve a diagram individually to get them.
+    """
+
+    source_xml = None
+    svg_cache = None
+
+    class Meta(DiagramSerializer.Meta):
+        fields = [f for f in DiagramSerializer.Meta.fields if f not in ("source_xml", "svg_cache")]
