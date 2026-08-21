@@ -15,16 +15,26 @@ authors = [
 ]
 keywords = ["netbox", "netbox-plugin", "drawio", "diagrams"]
 classifiers = [
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
     "Framework :: Django",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Topic :: System :: Networking",
     "Operating System :: OS Independent",
 ]
+
 # No runtime dependencies: the plugin only runs inside NetBox, which pins Django.
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/CESNET/netbox_drawio"
+Repository = "https://github.com/CESNET/netbox_drawio"
+Issues = "https://github.com/CESNET/netbox_drawio/issues"
+Changelog = "https://github.com/CESNET/netbox_drawio/blob/main/CHANGELOG.md"
 
 [project.entry-points."netbox.plugins"]
 netbox_drawio = "netbox_drawio:config"
