@@ -1,5 +1,4 @@
 import hashlib
-import logging
 from functools import cached_property
 
 from django.core.exceptions import ObjectDoesNotExist
@@ -8,8 +7,6 @@ from django.urls import reverse
 from netbox.models import NetBoxModel, PrimaryModel
 
 from netbox_drawio.constants import BLOB_FIELDS
-
-logger = logging.getLogger(__name__)
 
 
 class Diagram(PrimaryModel):
