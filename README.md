@@ -1,10 +1,22 @@
 # netbox-drawio
 
+> Draw network diagrams inside NetBox and link one diagram to many objects.
+
 NetBox plugin for creating [draw.io](https://www.drawio.com/) diagrams directly in NetBox and
 assigning them to **multiple** NetBox objects (Devices, Sites, Circuits, …).
 
 A topology diagram usually touches many objects — unlike a per-object attachment, one Diagram
 here can be linked to every Device and Site it depicts.
+
+## Screenshots
+
+The **Diagrams** tab on a Device, with SVG preview cards:
+
+![Diagrams tab on a Device detail page](https://raw.githubusercontent.com/CESNET/netbox_drawio/main/docs/img/diagrams-tab.jpeg)
+
+The draw.io editor embedded in NetBox:
+
+![Embedded draw.io editor](https://raw.githubusercontent.com/CESNET/netbox_drawio/main/docs/img/editor.jpeg)
 
 ## Features
 
@@ -25,7 +37,7 @@ here can be linked to every Device and Site it depicts.
 |--------|--------|
 | 4.6.4 – 4.6.x | ≥ 0.1.0 |
 
-Python ≥ 3.12.
+Python ≥ 3.12, < 3.15.
 
 ## Installation
 
@@ -100,6 +112,10 @@ PLUGINS_CONFIG = {
 /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py test netbox_drawio --keepdb
 ```
 
+## Support
+
+Bug reports and feature requests: [GitHub Issues](https://github.com/CESNET/netbox_drawio/issues).
+
 ## License
 
-Apache-2.0
+Apache-2.0 — see [LICENSE](LICENSE). Copyright 2026 CESNET z.s.p.o.

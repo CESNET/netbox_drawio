@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-label="netbox-drawio">
+  <rect width="256" height="256" rx="40" fill="#2c3e50"/>
+  <g stroke="#f2931e" stroke-width="10" stroke-linecap="round" fill="none">
+    <path d="M128 92v34M92 164h72"/>
+    <path d="M92 164v-20M164 164v-20"/>
+  </g>
+  <g fill="#f2931e">
+    <rect x="88" y="52" width="80" height="42" rx="8"/>
+    <rect x="46" y="162" width="72" height="42" rx="8"/>
+    <rect x="138" y="162" width="72" height="42" rx="8"/>
+  </g>
+</svg>

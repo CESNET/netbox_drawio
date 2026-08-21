@@ -1,0 +1,25 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      # Fail before publishing if the tag and version.py disagree — PyPI would
+      # otherwise reject the upload as a duplicate halfway through the job.
+      - name: Check tag matches package version
+        run: grep -q "^__version__ = \"${GITHUB_REF_NAME#v}\"$" netbox_drawio/version.py
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build
+      - run: python -m build
+      - uses: pypa/gh-action-pypi-publish@release/v1
