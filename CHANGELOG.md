@@ -2,9 +2,9 @@
 
 All notable changes to this project are documented here.
 
-## 0.1.0
+## 0.1.0 — 2026-08-21
 
-First public release. Requires NetBox 4.6.4 – 4.6.99, Python ≥ 3.12.
+First public release. Requires NetBox 4.6.4 – 4.6.99, Python ≥ 3.12, < 3.15.
 
 - Embedded draw.io editor using the draw.io embed protocol — diagram XML travels only between
   the browser and NetBox; the editor host never receives it.

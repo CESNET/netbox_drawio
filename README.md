@@ -1,5 +1,3 @@
-<img src="https://raw.githubusercontent.com/CESNET/netbox_drawio/main/docs/img/icon.svg" alt="" width="96" align="right">
-
 # netbox-drawio
 
 > Draw network diagrams inside NetBox and link one diagram to many objects.
@@ -39,7 +37,7 @@ The draw.io editor embedded in NetBox:
 |--------|--------|
 | 4.6.4 – 4.6.x | ≥ 0.1.0 |
 
-Python ≥ 3.12.
+Python ≥ 3.12, < 3.15.
 
 ## Installation
 
