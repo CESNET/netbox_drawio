@@ -39,8 +39,8 @@ class DiagramAssignmentSerializer(NetBoxModelSerializer):
             "object_type",
             "object_id",
             "parent",
-            "custom_fields",
             "tags",
+            "custom_fields",
             "created",
             "last_updated",
         ]
@@ -116,8 +116,8 @@ class DiagramSerializer(PrimaryModelSerializer):
             "created",
             "last_updated",
             "comments",
-            "custom_fields",
             "tags",
+            "custom_fields",
         ]
         brief_fields = ("id", "url", "display", "name", "description")
 
