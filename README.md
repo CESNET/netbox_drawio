@@ -10,6 +10,16 @@ assigning them to **multiple** NetBox objects (Devices, Sites, Circuits, …).
 A topology diagram usually touches many objects — unlike a per-object attachment, one Diagram
 here can be linked to every Device and Site it depicts.
 
+## Screenshots
+
+The **Diagrams** tab on a Device, with SVG preview cards:
+
+![Diagrams tab on a Device detail page](https://raw.githubusercontent.com/CESNET/netbox_drawio/main/docs/img/diagrams-tab.jpeg)
+
+The draw.io editor embedded in NetBox:
+
+![Embedded draw.io editor](https://raw.githubusercontent.com/CESNET/netbox_drawio/main/docs/img/editor.jpeg)
+
 ## Features
 
 - **Embedded draw.io editor** — edit diagrams in an iframe using the draw.io embed protocol.
