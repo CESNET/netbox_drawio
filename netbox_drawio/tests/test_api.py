@@ -1,5 +1,7 @@
 from core.models.object_types import ObjectType
 from django.test import override_settings
+from extras.choices import CustomFieldTypeChoices
+from extras.models import CustomField
 from rest_framework import status
 from users.models import ObjectPermission
 from utilities.testing import APITestCase, APIViewTestCases, create_test_device
@@ -77,6 +79,33 @@ class DiagramAPITest(
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["source_xml"], diagram.source_xml)
         self.assertEqual(response.data["svg_cache"], diagram.svg_cache)
+
+    def test_custom_field_round_trip(self):
+        cf = CustomField.objects.create(name="drawio_cf", type=CustomFieldTypeChoices.TYPE_TEXT)
+        cf.object_types.set([ObjectType.objects.get_for_model(Diagram)])
+        diagram = Diagram.objects.get(name="Existing Diagram 1")
+        diagram.custom_field_data["drawio_cf"] = "initial"
+        diagram.save()
+
+        self.add_permissions("netbox_drawio.view_diagram", "netbox_drawio.change_diagram")
+        response = self.client.get(self._get_detail_url(diagram), **self.header)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["custom_fields"]["drawio_cf"], "initial")
+
+        response = self.client.patch(
+            self._get_detail_url(diagram),
+            {"custom_fields": {"drawio_cf": "updated"}},
+            format="json",
+            **self.header,
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        diagram.refresh_from_db()
+        self.assertEqual(diagram.custom_field_data["drawio_cf"], "updated")
+
+        response = self.client.get(self._get_list_url(), **self.header)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        row = next(r for r in response.data["results"] if r["id"] == diagram.pk)
+        self.assertEqual(row["custom_fields"]["drawio_cf"], "updated")
 
     @override_settings(PLUGINS_CONFIG={"netbox_drawio": {"max_size": 50}})
     def test_oversize_source_xml_rejected(self):
@@ -202,6 +231,28 @@ class DiagramAssignmentAPITest(
             **self.header,
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_custom_field_round_trip(self):
+        cf = CustomField.objects.create(name="drawio_assign_cf", type=CustomFieldTypeChoices.TYPE_TEXT)
+        cf.object_types.set([ObjectType.objects.get_for_model(DiagramAssignment)])
+        assignment = DiagramAssignment.objects.first()
+        assignment.custom_field_data["drawio_assign_cf"] = "initial"
+        assignment.save()
+
+        self.add_permissions("netbox_drawio.view_diagramassignment", "netbox_drawio.change_diagramassignment")
+        response = self.client.get(self._get_detail_url(assignment), **self.header)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["custom_fields"]["drawio_assign_cf"], "initial")
+
+        response = self.client.patch(
+            self._get_detail_url(assignment),
+            {"custom_fields": {"drawio_assign_cf": "updated"}},
+            format="json",
+            **self.header,
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.custom_field_data["drawio_assign_cf"], "updated")
 
     def test_parent_nested_representation(self):
         self.add_permissions("netbox_drawio.view_diagramassignment")
