@@ -2,12 +2,10 @@ import hashlib
 import logging
 from functools import cached_property
 
-from core.models.object_types import ObjectType
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from django.urls import reverse
 from netbox.models import NetBoxModel, PrimaryModel
-from utilities.querysets import RestrictedQuerySet
 
 from netbox_drawio.constants import BLOB_FIELDS
 
@@ -95,12 +93,10 @@ class DiagramAssignment(NetBoxModel):
         related_name="assignments",
     )
     object_type = models.ForeignKey(
-        to=ObjectType,
+        to="core.ObjectType",
         on_delete=models.CASCADE,
     )
     object_id = models.PositiveBigIntegerField()
-
-    objects = RestrictedQuerySet.as_manager()
 
     class Meta:
         ordering = ("diagram", "object_type", "object_id")

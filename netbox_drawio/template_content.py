@@ -1,7 +1,5 @@
 import logging
 
-from django.db.utils import OperationalError
-
 from netbox_drawio.utils import get_setting, iter_supported_models
 
 logger = logging.getLogger(__name__)
@@ -82,15 +80,8 @@ def get_template_extensions():
     Returns an empty extension list — the tab views register as a side effect
     (PluginTemplateExtensions are not used in v1).
     """
-    try:
-        for model in iter_supported_models():
-            register_diagrams_tab_view(model)
-
-    except OperationalError:
-        logger.error("Database is not ready, skipping Diagrams tab setup")
-    except Exception as e:
-        logger.error("Unexpected error in Diagrams tab setup")
-        logger.debug(f"Error details: {str(e)}", exc_info=True)
+    for model in iter_supported_models():
+        register_diagrams_tab_view(model)
 
     return []
 
