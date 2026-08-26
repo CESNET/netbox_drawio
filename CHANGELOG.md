@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## 0.1.1 — 2026-08-26
+
+- Fix save being silently dropped when a draw.io spinner was already active (two saves in quick
+  succession, autosave during a manual save): the export request no longer sets `spinKey`, so
+  draw.io's spinner guard can't swallow it ([#4](https://github.com/CESNET/netbox_drawio/issues/4)).
+- The status line now shows *Saving…* as soon as a save is requested, so a stalled export is visible.
+
 ## 0.1.0 — 2026-08-21
 
 First public release. Requires NetBox 4.6.4 – 4.6.99, Python ≥ 3.12, < 3.15.
