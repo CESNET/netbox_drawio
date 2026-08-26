@@ -56,7 +56,10 @@
         // xmlsvg embeds the diagram XML inside the SVG, keeping the preview round-trippable.
         // draw.io echoes this request back in the export response's `message` field, so the
         // extra seq/xml let us pair each SVG with the exact edit it renders.
-        post({ action: "export", format: "xmlsvg", xml: stashedXml, spinKey: "saving", seq: stashSeq });
+        // No spin/spinKey: draw.io gates the xmlsvg branch on spinner.spin(), which returns
+        // false while a spinner is already up — the request would be dropped without a reply.
+        setStatus("Saving…", false);
+        post({ action: "export", format: "xmlsvg", xml: stashedXml, seq: stashSeq });
     }
 
     function persist() {
@@ -66,7 +69,6 @@
         const payload = pending;
         pending = null;
         saving = true;
-        setStatus("Saving…", false);
         fetch(cfg.saveUrl, {
             method: "POST",
             headers: {
