@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## 0.2.0 — 2026-09-04
+
+- **Breaking:** requires NetBox 4.7.x (`min_version` 4.7.0, `max_version` 4.7.99). NetBox 4.6.x
+  installs stay on 0.1.x.
+- Verified against NetBox 4.7.0 (Django 6.1, django-tables2 3.0): no code or migration changes.
+  List-view / API query-count baselines re-recorded (NetBox 4.7 issues fewer queries per request).
+
 ## 0.1.1 — 2026-08-26
 
 - Fix save being silently dropped when a draw.io spinner was already active (two saves in quick
