@@ -3,7 +3,6 @@ import json
 from django.conf import settings
 from django.core.exceptions import RequestDataTooBig
 from django.db.models import Count
-from django.db.models.functions import Length
 from django.http import HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
@@ -23,6 +22,7 @@ from netbox_drawio.utils import (
     get_enabled_object_type_queryset,
     get_safe_return_url,
     get_setting,
+    svg_size_annotation,
 )
 
 
@@ -70,10 +70,16 @@ def get_object_context(request):
 # scripts are blocked even on direct navigation to the URL.
 SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; sandbox"
 
+# Versioned preview URLs (?v=<content_hash>) never change content, so the browser
+# may keep them for a year without revalidating. Anything else revalidates via ETag.
+SVG_CACHE_CONTROL_IMMUTABLE = "private, max-age=31536000, immutable"
+SVG_CACHE_CONTROL_REVALIDATE = "private, no-cache"
+
+
 # Shared by the list and bulk views: blobs deferred, annotations the table renders
 DIAGRAM_LIST_QUERYSET = models.Diagram.objects.defer(*BLOB_FIELDS).annotate(
     assignment_count=Count("assignments", distinct=True),
-    svg_size=Length("svg_cache"),
+    svg_size=svg_size_annotation(),
 )
 
 
@@ -259,14 +265,11 @@ class DiagramSVGView(ConditionalLoginRequiredMixin, View):
     """Raw SVG preview endpoint; everything renders it via <img src>."""
 
     def get(self, request, pk):
+        # svg_cache stays deferred so a 304 never pulls the blob out of Postgres
         diagram = get_object_or_404(
-            models.Diagram.objects.restrict(request.user, "view").only(
-                "id", "name", "svg_cache", "content_hash", "last_updated"
-            ),
+            models.Diagram.objects.restrict(request.user, "view").only("id", "name", "content_hash", "last_updated"),
             pk=pk,
         )
-        if not diagram.svg_cache:
-            return HttpResponse(status=404)
 
         if diagram.content_hash:
             etag = f'"{diagram.content_hash}"'
@@ -275,13 +278,26 @@ class DiagramSVGView(ConditionalLoginRequiredMixin, View):
         else:
             etag = None
 
+        if request.GET.get("v") and request.GET["v"] == diagram.content_hash:
+            cache_control = SVG_CACHE_CONTROL_IMMUTABLE
+        else:
+            cache_control = SVG_CACHE_CONTROL_REVALIDATE
+
+        if etag and (not_modified := get_conditional_response(request, etag=etag)):
+            not_modified["ETag"] = etag
+            not_modified["Cache-Control"] = cache_control
+            return not_modified
+
+        if not diagram.svg_cache:
+            return HttpResponse(status=404)
+
         response = HttpResponse(diagram.svg_cache, content_type="image/svg+xml; charset=utf-8")
         response["Content-Security-Policy"] = SVG_CSP
         response["X-Content-Type-Options"] = "nosniff"
         response["Content-Disposition"] = f'inline; filename="diagram-{diagram.pk}.svg"'
+        response["Cache-Control"] = cache_control
         if etag:
             response["ETag"] = etag
-            return get_conditional_response(request, etag=etag, response=response)
         return response
 
 

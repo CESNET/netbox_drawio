@@ -45,7 +45,7 @@
                 <div class="card-body text-center">
                     {% if object.diagram.svg_cache %}
                         <a href="{{ object.diagram.get_absolute_url }}">
-                            <img src="{% url 'plugins:netbox_drawio:diagram_svg' pk=object.diagram.pk %}"
+                            <img src="{% url 'plugins:netbox_drawio:diagram_svg' pk=object.diagram.pk %}?v={{ object.diagram.content_hash }}"
                                  style="max-width: 100%; max-height: 300px;"
                                  alt="{{ object.diagram.name }}">
                         </a>

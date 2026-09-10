@@ -1,6 +1,8 @@
 import json
 
+from django.db import connection
 from django.test import override_settings
+from django.test.utils import CaptureQueriesContext
 from utilities.testing.views import ModelViewTestCase
 
 from netbox_drawio.models import Diagram
@@ -218,6 +220,38 @@ class DiagramSVGSourceViewTest(ModelViewTestCase):
             HTTP_IF_NONE_MATCH='"stale-tag", W/"other-tag"',
         )
         self.assertHttpStatus(response, 200)
+
+    def test_svg_versioned_url_is_immutable(self):
+        self.add_permissions("netbox_drawio.view_diagram")
+        url = self._get_url("svg", self.diagram) + f"?v={self.diagram.content_hash}"
+        response = self.client.get(url)
+        self.assertHttpStatus(response, 200)
+        self.assertEqual(response["Cache-Control"], "private, max-age=31536000, immutable")
+
+        not_modified = self.client.get(url, HTTP_IF_NONE_MATCH=response["ETag"])
+        self.assertHttpStatus(not_modified, 304)
+        self.assertEqual(not_modified["Cache-Control"], "private, max-age=31536000, immutable")
+        self.assertEqual(not_modified["ETag"], response["ETag"])
+
+    def test_svg_unversioned_or_stale_url_revalidates(self):
+        self.add_permissions("netbox_drawio.view_diagram")
+        url = self._get_url("svg", self.diagram)
+        for query in ("", "?v=", "?v=stale"):
+            with self.subTest(query=query):
+                response = self.client.get(url + query)
+                self.assertHttpStatus(response, 200)
+                self.assertEqual(response["Cache-Control"], "private, no-cache")
+
+    def test_svg_304_skips_blob_query(self):
+        self.add_permissions("netbox_drawio.view_diagram")
+        url = self._get_url("svg", self.diagram)
+        etag = self.client.get(url)["ETag"]
+        with CaptureQueriesContext(connection) as full:
+            self.assertHttpStatus(self.client.get(url), 200)
+        with CaptureQueriesContext(connection) as conditional:
+            self.assertHttpStatus(self.client.get(url, HTTP_IF_NONE_MATCH=etag), 304)
+        self.assertEqual(len(conditional), len(full) - 1)
+        self.assertFalse(any("svg_cache" in q["sql"] for q in conditional.captured_queries))
 
     def test_svg_404_when_empty(self):
         self.add_permissions("netbox_drawio.view_diagram")
