@@ -6,8 +6,8 @@ from netbox_drawio.models import Diagram, DiagramAssignment
 PREVIEW_COLUMN = """
 {% if record.svg_size %}
 <a href="{{ record.get_absolute_url }}">
-    <img src="{% url 'plugins:netbox_drawio:diagram_svg' pk=record.pk %}"
-         style="max-height: 48px; max-width: 120px;" loading="lazy" alt="{{ record.name }}">
+    <img src="{% url 'plugins:netbox_drawio:diagram_svg' pk=record.pk %}?v={{ record.content_hash }}"
+         style="max-height: 48px; max-width: 120px;" loading="lazy" decoding="async" alt="{{ record.name }}">
 </a>
 {% else %}
 <span class="text-muted">&mdash;</span>

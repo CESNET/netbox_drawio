@@ -1,13 +1,12 @@
 import logging
 
-from netbox_drawio.utils import get_setting, iter_supported_models
+from netbox_drawio.utils import get_setting, iter_supported_models, svg_size_annotation
 
 logger = logging.getLogger(__name__)
 
 
 def register_diagrams_tab_view(model) -> str:
     from core.models.object_types import ObjectType
-    from django.db.models.functions import Length
     from django.shortcuts import get_object_or_404, render
     from django.views.generic import View
     from netbox.context import current_request
@@ -54,7 +53,7 @@ def register_diagrams_tab_view(model) -> str:
                 .select_related("diagram")
                 .defer("diagram__source_xml", "diagram__svg_cache")
                 .annotate(
-                    svg_size=Length("diagram__svg_cache"),
+                    svg_size=svg_size_annotation("diagram__svg_cache"),
                 )
                 .order_by("diagram__name")
             )

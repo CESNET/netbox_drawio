@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here.
 
+## 0.2.1 — 2026-09-10
+
+- Diagram previews are now browser-cacheable: every `<img>` links the SVG endpoint with
+  `?v=<content_hash>` and the endpoint answers such requests with
+  `Cache-Control: private, max-age=31536000, immutable`, so a list of 150 diagrams costs 150
+  requests once instead of on every page load. Unversioned URLs keep revalidating via ETag.
+- The SVG endpoint checks `If-None-Match` before loading the SVG blob, so a 304 no longer reads
+  the diagram out of Postgres.
+- List and tab querysets compute `svg_size` with `OCTET_LENGTH` instead of `LENGTH`, which avoids
+  decompressing every stored SVG just to test whether a preview exists.
+
 ## 0.2.0 — 2026-09-04
 
 - **Breaking:** requires NetBox 4.7.x (`min_version` 4.7.0, `max_version` 4.7.99). NetBox 4.6.x

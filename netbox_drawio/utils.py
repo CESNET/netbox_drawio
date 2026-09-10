@@ -2,11 +2,20 @@ import base64
 import logging
 from urllib.parse import urlencode
 
+from django.db.models import F, Func, IntegerField
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from netbox_drawio.constants import FORCED_EMBED_PARAMS, HARD_EXCLUDED_APPS, SVG_DATA_URI_PREFIX
 
 logger = logging.getLogger(__name__)
+
+
+def svg_size_annotation(field="svg_cache"):
+    """
+    OCTET_LENGTH reads the TOAST header only; LENGTH() on UTF-8 text detoasts and
+    counts characters for every row. Only truthiness is ever used.
+    """
+    return Func(F(field), function="OCTET_LENGTH", output_field=IntegerField())
 
 
 def get_safe_return_url(request):
