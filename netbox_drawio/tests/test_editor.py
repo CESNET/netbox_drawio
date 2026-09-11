@@ -33,6 +33,7 @@ class DiagramEditorViewTest(ModelViewTestCase):
         self.assertIn("proto=json", content)
         self.assertIn("drawio-config", content)
         self.assertIn("embed.diagrams.net", content)
+        self.assertIn('id="drawio-fullscreen"', content)
 
     @override_settings(PLUGINS_CONFIG={"netbox_drawio": {"drawio_base_url": "https://EMBED.diagrams.net:443/"}})
     def test_editor_normalizes_embed_origin(self):

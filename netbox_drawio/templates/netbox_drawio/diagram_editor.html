@@ -12,8 +12,16 @@
             </a>
             <span class="ms-2 fw-bold">{{ object.name }}</span>
         </div>
-        <span id="drawio-status" class="text-muted small">{% trans "Loading editor…" %}</span>
+        <div>
+            <span id="drawio-status" class="text-muted small me-2">{% trans "Loading editor…" %}</span>
+            <button type="button"
+                    id="drawio-fullscreen"
+                    class="btn btn-outline-secondary btn-sm">
+                <i class="mdi mdi-fullscreen" aria-hidden="true"></i> {% trans "Fullscreen" %}
+            </button>
+        </div>
     </div>
+    <style>#drawio-frame:fullscreen { border: 0; border-radius: 0; }</style>
     <iframe id="drawio-frame"
             src="{{ embed_url }}"
             title="draw.io editor"

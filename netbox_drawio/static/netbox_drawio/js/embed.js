@@ -17,6 +17,7 @@
     if (!configEl || !frame) {
         return;
     }
+    document.getElementById("drawio-fullscreen")?.addEventListener("click", () => frame.requestFullscreen());
 
     let cfg;
     try {
