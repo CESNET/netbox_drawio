@@ -34,5 +34,5 @@
     {{ drawio_config|json_script:"drawio-config" }}
 {% endblock content %}
 {% block javascript %}
-    <script src="{% static 'netbox_drawio/js/embed.js' %}" defer></script>
+    <script src="{% static 'netbox_drawio/js/embed.js' %}?v={{ plugin_version }}" defer></script>
 {% endblock javascript %}

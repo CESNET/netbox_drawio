@@ -15,6 +15,7 @@ from utilities.views import ConditionalLoginRequiredMixin, register_model_view
 
 from netbox_drawio import filtersets, forms, models, tables
 from netbox_drawio.constants import BLOB_FIELDS, SAVE_BODY_BUDGET_FACTOR
+from netbox_drawio.version import __version__
 from netbox_drawio.utils import (
     build_embed_url,
     decode_svg_data_uri,
@@ -177,6 +178,7 @@ class DiagramEditorView(generic.ObjectView):
         return {
             "embed_url": embed_url,
             "return_url": return_url,
+            "plugin_version": __version__,
             "drawio_config": {
                 "embedOrigin": get_embed_origin(embed_url),
                 "saveUrl": reverse("plugins:netbox_drawio:diagram_save", kwargs={"pk": instance.pk}),
