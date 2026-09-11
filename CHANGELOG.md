@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## 0.2.2 — 2026-09-11
+
+- The diagram editor toolbar has a **Fullscreen** button that puts the draw.io iframe into
+  native browser fullscreen. Esc returns to the normal layout.
+
 ## 0.2.1 — 2026-09-10
 
 - Diagram previews are now browser-cacheable: every `<img>` links the SVG endpoint with
