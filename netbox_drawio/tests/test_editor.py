@@ -171,6 +171,7 @@ class DiagramSVGSourceViewTest(ModelViewTestCase):
         self.assertIn("sandbox", response["Content-Security-Policy"])
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
         self.assertIn("inline", response["Content-Disposition"])
+        self.assertIn('filename="SVG_Diagram.svg"', response["Content-Disposition"])
         self.assertEqual(response.content.decode(), self.diagram.svg_cache)
 
     def test_svg_etag_304(self):
@@ -264,8 +265,19 @@ class DiagramSVGSourceViewTest(ModelViewTestCase):
         response = self.client.get(self._get_url("source", self.diagram))
         self.assertHttpStatus(response, 200)
         self.assertIn("attachment", response["Content-Disposition"])
-        self.assertIn(".drawio", response["Content-Disposition"])
+        self.assertIn('filename="SVG_Diagram.drawio"', response["Content-Disposition"])
         self.assertEqual(response.content.decode(), self.diagram.source_xml)
+
+    def test_download_filename_sanitized(self):
+        self.add_permissions("netbox_drawio.view_diagram")
+        unicode_name = make_diagram('Síť / core "v2"')
+        response = self.client.get(self._get_url("source", unicode_name))
+        self.assertHttpStatus(response, 200)
+        self.assertEqual(response["Content-Disposition"], "attachment; filename*=utf-8''S%C3%AD%C5%A5__core_v2.drawio")
+        unusable_name = make_diagram("..")
+        response = self.client.get(self._get_url("source", unusable_name))
+        self.assertHttpStatus(response, 200)
+        self.assertEqual(response["Content-Disposition"], f'attachment; filename="diagram-{unusable_name.pk}.drawio"')
 
     def test_source_404_when_empty(self):
         self.add_permissions("netbox_drawio.view_diagram")

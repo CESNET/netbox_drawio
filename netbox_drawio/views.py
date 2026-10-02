@@ -1,13 +1,15 @@
 import json
 
 from django.conf import settings
-from django.core.exceptions import RequestDataTooBig
+from django.core.exceptions import RequestDataTooBig, SuspiciousFileOperation
 from django.db.models import Count
 from django.http import HttpResponse, JsonResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
 from django.utils.cache import get_conditional_response
+from django.utils.http import content_disposition_header
+from django.utils.text import get_valid_filename
 from django.views.generic import View
 from netbox import object_actions
 from netbox.views import generic
@@ -25,6 +27,15 @@ from netbox_drawio.utils import (
     get_setting,
     svg_size_annotation,
 )
+
+
+def download_filename(diagram, ext):
+    """Diagram name as a filesystem-safe filename; diagram-<pk> when nothing usable is left."""
+    try:
+        stem = get_valid_filename(diagram.name)
+    except SuspiciousFileOperation:
+        stem = f"diagram-{diagram.pk}"
+    return f"{stem}{ext}"
 
 
 def drop_none_values(params):
@@ -296,7 +307,7 @@ class DiagramSVGView(ConditionalLoginRequiredMixin, View):
         response = HttpResponse(diagram.svg_cache, content_type="image/svg+xml; charset=utf-8")
         response["Content-Security-Policy"] = SVG_CSP
         response["X-Content-Type-Options"] = "nosniff"
-        response["Content-Disposition"] = f'inline; filename="diagram-{diagram.pk}.svg"'
+        response["Content-Disposition"] = content_disposition_header(False, download_filename(diagram, ".svg"))
         response["Cache-Control"] = cache_control
         if etag:
             response["ETag"] = etag
@@ -316,7 +327,7 @@ class DiagramSourceView(ConditionalLoginRequiredMixin, View):
             return HttpResponse(status=404)
 
         response = HttpResponse(diagram.source_xml, content_type="application/xml; charset=utf-8")
-        response["Content-Disposition"] = f'attachment; filename="diagram-{diagram.pk}.drawio"'
+        response["Content-Disposition"] = content_disposition_header(True, download_filename(diagram, ".drawio"))
         return response
 
 

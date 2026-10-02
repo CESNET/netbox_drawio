@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## 0.2.3 — 2026-10-02
+
+- Cards on an object's **Diagrams** tab are twice as large (440 × 300 px instead of 220 × 150 px),
+  so a schema is readable without opening it.
+- Downloads are named after the diagram: the `.drawio` export and the SVG endpoint send
+  `Content-Disposition` with the diagram name made filesystem-safe (`Core network` →
+  `Core_network.drawio`, non-ASCII via RFC 5987 `filename*`). `diagram-<pk>` remains only as the
+  fallback when the name reduces to nothing usable.
+
 ## 0.2.2 — 2026-09-11
 
 - The diagram editor toolbar has a **Fullscreen** button that puts the draw.io iframe into
